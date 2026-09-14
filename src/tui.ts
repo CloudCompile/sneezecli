@@ -11,6 +11,7 @@ import {
 import { PROVIDERS, visibleProviders } from "./providers.js";
 import { CATALOG, findCatalogModel } from "./catalog.js";
 import { usageLog, checkBudget } from "./llm.js";
+import { route } from "./router.js";
 import { listTasks, spawnSubtask, getTask } from "./subagents.js";
 import type { ChatMessage } from "./llm.js";
 
@@ -496,23 +497,61 @@ async function pickModel(state: TuiState): Promise<ModelEntry | undefined> {
 
 async function compactSession(state: TuiState): Promise<void> {
   const msgs = state.session.messages;
-  if (msgs.length < 4) {
+  // need enough history to be worth an LLM call: keep last N verbatim + something to summarize
+  if (msgs.length < 6) {
     console.log(c.gray("nothing to compact") + c.reset);
     return;
   }
-  console.log(c.gray("compacting…") + c.reset);
-  // summarize everything except the last 2 messages into one user message
-  const keep = msgs.slice(-2);
-  const summary = msgs
-    .slice(0, -2)
-    .map((m) => `${m.role}: ${truncate((m.content ?? "").replace(/\s+/g, " "), 150)}`)
-    .join("\n");
-  state.session.messages = [
-    { role: "user", content: `[earlier conversation summary]\n${summary}\n\n[continue from here]` },
-    ...keep,
-  ];
-  saveSession(state.session);
-  console.log(c.green(`✓ compacted ${msgs.length} → ${state.session.messages.length} messages`) + c.reset);
+
+  const KEEP = 4; // recent messages kept verbatim (2 turns of user+assistant/tool)
+  const toSummarize = msgs.slice(0, -KEEP);
+  const keep = msgs.slice(-KEEP);
+
+  console.log(c.gray("compacting… (LLM summarize)") + c.reset);
+  try {
+    const resp = await route(
+      {
+        messages: [
+          {
+            role: "system",
+            content:
+              "Summarize the conversation so far for use as compacted context. " +
+              "Capture: the user's goals and requests, key decisions made, files read/edited, " +
+              "commands run and their outcomes, and anything unresolved. Be factual and dense. " +
+              "Do not add commentary — output only the summary.",
+          },
+          {
+            role: "user",
+            content:
+              toSummarize
+                  .map((m) => {
+                    const tc = m.tool_calls?.length
+                      ? ` [tool calls: ${m.tool_calls.map((t) => t.function.name).join(", ")}]`
+                      : "";
+                    return `${m.role}: ${truncate((m.content ?? "").replace(/\s+/g, " "), 400)}${tc}`;
+                  })
+                .join("\n") + "\n\nWrite the summary now.",
+          },
+        ],
+        maxTokens: 1024,
+      },
+      state.pool
+    );
+
+    state.session.messages = [
+      { role: "user", content: `[earlier conversation summary]\n${resp.content.trim()}\n\n[continue from here]` },
+      ...keep,
+    ];
+    saveSession(state.session);
+    console.log(
+      c.green(`✓ compacted ${msgs.length} → ${state.session.messages.length} messages`) +
+        c.reset +
+        c.gray(` via ${resp.entry.provider}/${resp.entry.model} · kept last ${KEEP} verbatim`) +
+        c.reset
+    );
+  } catch (err: any) {
+    console.log(c.red(`✗ compact failed: ${err?.message ?? err}`) + c.reset);
+  }
 }
 
 function printHelp(): void {
