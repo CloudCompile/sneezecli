@@ -1,5 +1,6 @@
 import type { ModelEntry } from "./config.js";
 import { PROVIDERS } from "./providers.js";
+import { findCatalogModel } from "./catalog.js";
 import { readFileSync } from "node:fs";
 
 export interface ChatMessage {
@@ -68,6 +69,12 @@ export function entryKey(e: ModelEntry): string {
   return `${e.provider}:${e.model}`;
 }
 
+/** Rate-limit bucket key: provider-scoped limits share one bucket across models. */
+function bucketKey(e: ModelEntry): string {
+  const def = PROVIDERS[e.provider];
+  return def.limits.scope === "provider" ? `provider:${e.provider}` : entryKey(e);
+}
+
 function nowMinute(): number {
   return Math.floor(Date.now() / 60_000);
 }
@@ -95,17 +102,18 @@ function getState(k: string): RateState {
 /** Put a model on cooldown for the rest of this minute (after a 429). */
 export function markRateLimited(e: ModelEntry): void {
   const nextMinute = (nowMinute() + 1) * 60_000;
-  cooldownUntil.set(entryKey(e), nextMinute + 250);
+  cooldownUntil.set(bucketKey(e), nextMinute + 250);
 }
 
 export function checkBudget(e: ModelEntry): { ok: boolean; reason?: string } {
   const def = PROVIDERS[e.provider];
-  const k = entryKey(e);
+  const k = bucketKey(e);
   const until = cooldownUntil.get(k);
   if (until && Date.now() < until) {
     return { ok: false, reason: `cooling down ${Math.ceil((until - Date.now()) / 1000)}s (429)` };
   }
-  const rpm = e.rpm ?? def.limits.rpm;
+  const cat = findCatalogModel(e.provider, e.model);
+  const rpm = e.rpm ?? cat?.rpm ?? def.limits.rpm;
   const s = getState(k);
   if (rpm !== undefined && s.minuteCount >= rpm) {
     return { ok: false, reason: `rpm cap ${rpm}` };
@@ -120,7 +128,7 @@ export function checkBudget(e: ModelEntry): { ok: boolean; reason?: string } {
 }
 
 function recordRequest(e: ModelEntry, tokensIn: number, tokensOut: number): void {
-  const s = getState(entryKey(e));
+  const s = getState(bucketKey(e));
   s.minuteCount++;
   s.dayCount++;
   s.tokensSpent += tokensIn + tokensOut;
@@ -211,8 +219,13 @@ export async function chat(
   }
 
   const key = apiKeyFor(entry);
-  if (!key) throw new Error(`${def.name}: missing ${def.keyEnv} env var`);
+  if (!key && !def.keyless) throw new Error(`${def.name}: missing ${def.keyEnv} env var`);
   if (!def.baseUrl) throw new Error(`${def.name}: no baseUrl configured`);
+
+  // ── Pollinations no-auth adapter: v1/chat/completions → GET /{prompt} ──
+  if (entry.provider === "pollinations-noauth") {
+    return await chatNoAuth(entry, req, cb);
+  }
 
   const body: Record<string, unknown> = {
     model: entry.model,
