@@ -2,11 +2,15 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { dirname, join, resolve, basename, extname } from "node:path";
 import { execSync, spawn } from "node:child_process";
 import type { ToolDef } from "./llm.js";
+import { spawnSubtask, getTask, listTasks } from "./subagents.js";
 
 export interface ToolContext {
   cwd: string;
   /** ask the user for permission; returns true to proceed */
   confirm?: (tool: string, summary: string) => Promise<boolean>;
+  /** model pool + config for spawning subagents */
+  pool?: import("./config.js").ModelEntry[];
+  cfg?: import("./config.js").Config;
 }
 
 export interface ToolImpl {

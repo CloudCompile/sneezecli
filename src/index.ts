@@ -3,7 +3,7 @@ import { CATALOG, catalogFor, findCatalogModel, type CatalogModel } from "./cata
 import { loadConfig, saveConfig, configPath, loadSession, type Config, type ModelEntry } from "./config.js";
 import { runAgent } from "./agent.js";
 import { usageLog, checkBudget } from "./llm.js";
-import { startRepl } from "./repl.js";
+import { startTui } from "./tui.js";
 
 const C = {
   dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
@@ -18,7 +18,7 @@ function usage(): never {
   console.log(`sneezecli — BYOK agent harness over free LLM providers
 
 Usage:
-  sneezecli                                Interactive REPL (main mode)
+  sneezecli                                Interactive TUI (main mode)
   sneezecli run "<task>"                   One-shot agent task
   sneezecli -p "<task>"                    Same as run
   sneezecli run "<task>" --yolo            Auto-approve dangerous tools
@@ -250,19 +250,24 @@ async function main(): Promise<void> {
   const cmd = args[0];
 
   if (!cmd || cmd === "-h" || cmd === "--help" || cmd === "help") {
-    // no args = REPL mode
+    // no args = TUI mode
     if (!cmd) {
       const cfg = loadConfig();
       if (cfg.models.length === 0) {
-        console.error("Pool is empty. Run `sneezecli setup` first.");
-        process.exit(1);
+        // allow TUI with empty pool — user can add via /model or /catalog
+        console.error(cDim("Pool is empty — use /model or /catalog inside the TUI to add models."));
+        console.error("");
       }
-      await startRepl(cfg.models, cfg, process.cwd());
+      await startTui(cfg.models, cfg, process.cwd());
       return;
     }
     usage();
   }
 
+
+function cDim(s: string): string {
+  return `\x1b[2m${s}\x1b[0m`;
+}
   switch (cmd) {
     case "cost":
       cmdCost();

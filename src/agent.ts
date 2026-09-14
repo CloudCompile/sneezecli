@@ -92,7 +92,12 @@ export async function runAgent(
       }
 
       events.onToolStart?.(tc.function.name, args);
-      const result = await runTool(tc.function.name, args, { cwd, confirm: events.confirm });
+      const result = await runTool(tc.function.name, args, {
+        cwd,
+        confirm: events.confirm,
+        pool,
+        cfg,
+      });
       toolCallsMade.push({ name: tc.function.name, args, result });
       events.onToolEnd?.(tc.function.name, result);
       messages.push({ role: "tool", tool_call_id: tc.id, content: result });
