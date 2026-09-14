@@ -1,14 +1,20 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
-const CONFIG_DIR = `${homedir()}/.config/sneezecli`;
-const SESSIONS_DIR = `${CONFIG_DIR}/sessions`;
-const CONFIG_PATH = `${CONFIG_DIR}/config.json`;
+function configDir() {
+    return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/sneezecli`;
+}
+function sessionsDirPath() {
+    return `${configDir()}/sessions`;
+}
+function configFilePath() {
+    return process.env.SNEEZE_CONFIG ?? `${configDir()}/config.json`;
+}
 export function configPath() {
-    return process.env.SNEEZE_CONFIG ?? CONFIG_PATH;
+    return configFilePath();
 }
 export function sessionsDir() {
-    return SESSIONS_DIR;
+    return sessionsDirPath();
 }
 export function loadConfig() {
     const p = configPath();
@@ -34,24 +40,30 @@ export function defaultConfig() {
     };
 }
 export function saveSession(s) {
-    mkdirSync(SESSIONS_DIR, { recursive: true });
-    writeFileSync(`${SESSIONS_DIR}/${s.id}.json`, JSON.stringify(s, null, 2) + "\n");
+    const dir = sessionsDirPath();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(`${dir}/${s.id}.json`, JSON.stringify(s, null, 2) + "\n");
 }
 export function loadSession(id) {
-    const p = `${SESSIONS_DIR}/${id}.json`;
+    const p = `${sessionsDirPath()}/${id}.json`;
     if (!existsSync(p))
         return undefined;
     return JSON.parse(readFileSync(p, "utf8"));
 }
+export function deleteSession(id) {
+    const p = `${sessionsDirPath()}/${id}.json`;
+    if (existsSync(p))
+        rmSync(p);
+}
 export function listSessions() {
-    if (!existsSync(SESSIONS_DIR))
+    const dir = sessionsDirPath();
+    if (!existsSync(dir))
         return [];
-    return readdirSorted(SESSIONS_DIR)
-        .map((f) => JSON.parse(readFileSync(`${SESSIONS_DIR}/${f}`, "utf8")))
+    return readdirSorted(dir)
+        .map((f) => JSON.parse(readFileSync(`${dir}/${f}`, "utf8")))
         .sort((a, b) => b.created.localeCompare(a.created));
 }
 function readdirSorted(dir) {
-    const { readdirSync } = require("node:fs");
     return readdirSync(dir).filter((f) => f.endsWith(".json"));
 }
 export function newSessionId() {

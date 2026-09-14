@@ -57,18 +57,34 @@ sneezecli add tokenreply <model-id> 4 --rpm 3
 
 ## Use
 
-### Interactive REPL (main mode)
+### Interactive TUI (main mode)
 
 ```bash
 sneezecli
 ```
 
-Streams responses, shows tool calls live, saves sessions. Slash commands:
+Full-screen TUI with streaming responses, live tool-call display, session
+management, and input queuing (type while the agent works — it drains after
+the turn). Esc aborts a running turn and kills in-flight bash commands.
+
+Slash commands:
 
 ```
 /help       /new         /resume [id]   /sessions
-/pool       /cwd <dir>   /yolo          /exit
+/rename <n> /delete-session             /model
+/catalog    /pool        /providers     /usage
+/context    /compact     /subtask <t>   /tasks
+/cwd <dir>  /yolo        /export [f]    /exit
 ```
+
+- `/model` — picker over the full catalog; picked model becomes primary (tier 1)
+- `/compact` — summarize older messages to free context
+- `/subtask <task>` — spawn a background subagent with its own conversation;
+	result posts back when done. The agent itself can spawn subtasks via the
+	`subtask` tool.
+- `/tasks` — list background subagents and their status
+- `/context` — context window usage bar
+- `/export [file]` — save transcript as markdown
 
 Dangerous tools (`bash`, `write_file`, `edit_file`, `patch_file`, `delete_file`,
 `bash_bg`) prompt for approval in safe mode. `/yolo` or answering `a`ll

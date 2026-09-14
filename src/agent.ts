@@ -23,6 +23,8 @@ export interface AgentEvents {
   onContent?: (delta: string) => void;
   /** return true to approve a dangerous tool call in safe mode */
   confirm?: (tool: string, summary: string) => Promise<boolean>;
+  /** abort signal forwarded to tools (bash kills its child on abort) */
+  abortSignal?: AbortSignal;
   /** called to check if the run was aborted (e.g. Esc pressed) */
   isAborted?: () => boolean;
 }
@@ -97,6 +99,7 @@ export async function runAgent(
         confirm: events.confirm,
         pool,
         cfg,
+        signal: events.abortSignal,
       });
       toolCallsMade.push({ name: tc.function.name, args, result });
       events.onToolEnd?.(tc.function.name, result);

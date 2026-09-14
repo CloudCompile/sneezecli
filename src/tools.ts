@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, rmSync } from "node:fs";
 import { dirname, join, resolve, basename, extname } from "node:path";
-import { execSync, spawn } from "node:child_process";
+import { execSync, spawn, exec } from "node:child_process";
 import type { ToolDef } from "./llm.js";
 import { spawnSubtask, getTask, listTasks } from "./subagents.js";
 
@@ -11,6 +11,8 @@ export interface ToolContext {
   /** model pool + config for spawning subagents */
   pool?: import("./config.js").ModelEntry[];
   cfg?: import("./config.js").Config;
+  /** abort signal — long tools check it and bail early */
+  signal?: AbortSignal;
 }
 
 export interface ToolImpl {
@@ -225,18 +227,24 @@ export const TOOLS: ToolImpl[] = [
     },
     dangerous: true,
     run: async (args, ctx) => {
-      try {
-        const out = execSync(args.command, {
-          cwd: ctx.cwd,
-          encoding: "utf8",
-          timeout: 60_000,
-          stdio: ["pipe", "pipe", "pipe"],
-          maxBuffer: 10 * 1024 * 1024,
-        });
-        return truncate(out || "(no output)");
-      } catch (err: any) {
-        return truncate(`EXIT ${err.status ?? "?"}\n${err.stdout ?? ""}${err.stderr ?? err.message}`);
-      }
+      return await new Promise<string>((resolve) => {
+        const child = exec(
+          args.command,
+          { cwd: ctx.cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, timeout: 60_000, killSignal: "SIGKILL" },
+          (err, stdout, stderr) => {
+            if (err && err.killed) return resolve("ABORTED");
+            if (err) {
+              return resolve(truncate(`EXIT ${err.code ?? "?"}\n${stdout}${stderr}`));
+            }
+            resolve(truncate(stdout + stderr || "(no output)"));
+          }
+        );
+        if (ctx.signal) {
+          const onAbort = () => child.kill("SIGKILL");
+          ctx.signal.addEventListener("abort", onAbort, { once: true });
+          child.once("exit", () => ctx.signal?.removeEventListener("abort", onAbort));
+        }
+      });
     },
   },
   {

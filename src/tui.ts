@@ -15,18 +15,26 @@ import { listTasks, spawnSubtask, getTask } from "./subagents.js";
 import type { ChatMessage } from "./llm.js";
 
 // ── colors ────────────────────────────────────────────────────────────
+// Colors are callable AND string-coercible: c.cyan("hi") wraps text, while
+// `${c.cyan}` / (c.green + "★") yield the raw escape code. Both styles are
+// used across the TUI.
+function mk(code: string): ((s: string) => string) & string {
+  const fn = ((s: string) => `${code}${s}\x1b[0m`) as ((s: string) => string) & string;
+  fn.toString = () => code;
+  return fn;
+}
 const c = {
-  reset: (s: string) => `\x1b[0m${s}\x1b[0m`,
-  dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
-  bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
-  red: (s: string) => `\x1b[31m${s}\x1b[0m`,
-  green: (s: string) => `\x1b[32m${s}\x1b[0m`,
-  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
-  blue: (s: string) => `\x1b[34m${s}\x1b[0m`,
-  magenta: (s: string) => `\x1b[35m${s}\x1b[0m`,
-  cyan: (s: string) => `\x1b[36m${s}\x1b[0m`,
-  gray: (s: string) => `\x1b[90m${s}\x1b[0m`,
-  white: (s: string) => `\x1b[97m${s}\x1b[0m`,
+  reset: mk("\x1b[0m"),
+  dim: mk("\x1b[2m"),
+  bold: mk("\x1b[1m"),
+  red: mk("\x1b[31m"),
+  green: mk("\x1b[32m"),
+  yellow: mk("\x1b[33m"),
+  blue: mk("\x1b[34m"),
+  magenta: mk("\x1b[35m"),
+  cyan: mk("\x1b[36m"),
+  gray: mk("\x1b[90m"),
+  white: mk("\x1b[97m"),
 };
 
 function box(title: string, lines: string[], width: number): string[] {
@@ -74,8 +82,10 @@ async function pick<T>(
 ): Promise<T | undefined> {
   return new Promise((resolve) => {
     let sel = current !== undefined ? Math.max(0, current) : 0;
+    let filter = "";
+    let view = items;
     const render = () => {
-      const lines = items.map((it, i) => {
+      const lines = view.map((it, i) => {
         const arrow = i === sel ? `${c.cyan}❯${c.reset} ` : "  ";
         const label = i === sel ? `${c.bold}${it.label}${c.reset}` : it.label;
         const hint = it.hint ? ` ${c.gray}${it.hint}${c.reset}` : "";
@@ -85,10 +95,9 @@ async function pick<T>(
       console.log(box(title, lines.slice(0, 30), 90));
       console.log(c.gray("  ↑/↓ move · enter select · esc cancel · type to filter") + c.reset);
     };
-    let filter = "";
     const refilter = (): void => {
-      // simple filter: keep items whose label includes filter
-      return items.filter((it) => it.label.toLowerCase().includes(filter.toLowerCase()));
+      view = items.filter((it) => it.label.toLowerCase().includes(filter.toLowerCase()));
+      if (sel >= view.length) sel = Math.max(0, view.length - 1);
     };
     render();
     const h: KeyHandler = {
@@ -97,23 +106,22 @@ async function pick<T>(
           sel = Math.max(0, sel - 1);
           render();
         } else if (key === "\x1b[B") {
-          sel = Math.min(items.length - 1, sel + 1);
+          sel = Math.min(view.length - 1, sel + 1);
           render();
         } else if (key === "\r" || key === "\n") {
           cleanup();
-          resolve(items[sel]?.value);
+          resolve(view[sel]?.value);
         } else if (key === "\x1b" || key === "\x03") {
           cleanup();
           resolve(undefined);
         } else if (key === "\x7f") {
           filter = filter.slice(0, -1);
+          refilter();
           render();
         } else if (key.length === 1 && key >= " ") {
           filter += key;
-          const filtered = refilter();
-          if (filtered.length > 0 && !filtered.includes(items[sel])) {
-            sel = items.indexOf(filtered[0]);
-          }
+          refilter();
+          if (view.length > 0 && !view.includes(items[sel])) sel = 0;
           render();
         }
       },
@@ -170,6 +178,7 @@ interface TuiState {
 }
 
 export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string): Promise<void> {
+  const queue: string[] = [];
   const state: TuiState = {
     session: { id: newSessionId(), created: new Date().toISOString(), cwd, messages: [] },
     pool,
@@ -192,12 +201,7 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string): Pr
   });
   rl.prompt();
 
-  rl.on("line", async (line) => {
-    const input = line.trim();
-    if (!input) {
-      rl.prompt();
-      return;
-    }
+  const processLine = async (input: string): Promise<void> => {
     if (input.startsWith("/")) {
       await handleCommand(state, input, rl);
       if (!state.running) rl.prompt();
@@ -210,6 +214,30 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string): Pr
     state.running = false;
     rl.resume();
     rl.prompt();
+    // drain anything typed while the turn was running
+    while (queue.length > 0) {
+      const next = queue.shift()!;
+      if (next === "/exit" || next === "/quit") {
+        rl.close();
+        return;
+      }
+      await processLine(next);
+    }
+  };
+
+  rl.on("line", (line) => {
+    const input = line.trim();
+    if (!input) {
+      rl.prompt();
+      return;
+    }
+    if (state.running) {
+      // queue while the agent is working (like Claude Code)
+      queue.push(input);
+      process.stdout.write(c.gray(`  ↳ queued "${truncate(input, 40)}"` + c.reset) + "\n");
+      return;
+    }
+    void processLine(input);
   });
 
   rl.on("close", () => {
@@ -333,7 +361,12 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
         }))
       );
       if (picked) {
-        const entry: ModelEntry = { provider: picked.provider, model: picked.model, tier: picked.tier ?? 3, rpm: picked.rpm };
+        const entry: ModelEntry = {
+          provider: picked.provider as ModelEntry["provider"],
+          model: picked.model,
+          tier: picked.tier ?? 3,
+          rpm: picked.rpm,
+        };
         state.pool.push(entry);
         console.log(c.green(`✓ added ${picked.provider}/${picked.model} at tier ${entry.tier}`) + c.reset);
       }
@@ -546,6 +579,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
       process.stdout.write(c.gray(`  ↳ ${truncate(first, 100)}`) + c.reset + "\n");
     },
     confirm: yolo ? undefined : confirmPrompt,
+    abortSignal: state.abort?.signal,
     isAborted: () => aborted,
   };
 

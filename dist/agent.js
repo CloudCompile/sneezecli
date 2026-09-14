@@ -57,6 +57,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
                 confirm: events.confirm,
                 pool,
                 cfg,
+                signal: events.abortSignal,
             });
             toolCallsMade.push({ name: tc.function.name, args, result });
             events.onToolEnd?.(tc.function.name, result);
