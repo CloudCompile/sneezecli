@@ -1,8 +1,12 @@
 import { PROVIDERS, visibleProviders } from "./providers.js";
+import { CATALOG, catalogFor, findCatalogModel } from "./catalog.js";
 import { loadConfig, saveConfig, configPath, loadSession } from "./config.js";
 import { runAgent } from "./agent.js";
 import { usageLog, checkBudget } from "./llm.js";
 import { startRepl } from "./repl.js";
+const C = {
+    dim: (s) => `\x1b[2m${s}\x1b[0m`,
+};
 function arg(args, name) {
     const i = args.indexOf(name);
     return i >= 0 ? args[i + 1] : undefined;
@@ -19,6 +23,8 @@ Usage:
 
 Pool management:
   sneezecli add <provider> <model> [tier] [--rpm N]
+  sneezecli add --auto                    Add all catalog models at suggested tiers
+  sneezecli models [provider]             Browse the built-in model catalog
   sneezecli remove <index>
   sneezecli pool                           Show model pool
   sneezecli status                         Rate-limit / budget state
@@ -63,6 +69,52 @@ function cmdStatus() {
             console.log(`  ${k}: ${u.requests} req, ${u.tokensIn} in, ${u.tokensOut} out`);
         }
     }
+}
+function cmdModels(provider, tag) {
+    let list = provider ? catalogFor(provider) : CATALOG;
+    if (tag)
+        list = list.filter((m) => m.tags?.includes(tag));
+    if (list.length === 0) {
+        console.log(provider ? `No models for "${provider}".` : "Catalog is empty.");
+        return;
+    }
+    const byProvider = new Map();
+    for (const m of list) {
+        if (!byProvider.has(m.provider))
+            byProvider.set(m.provider, []);
+        byProvider.get(m.provider).push(m);
+    }
+    for (const [pid, models] of byProvider) {
+        const def = PROVIDERS[pid];
+        console.log(`\n${def?.name ?? pid}  (${models.length})`);
+        for (const m of models) {
+            const rpm = m.rpm !== undefined ? ` ${m.rpm} rpm` : " ∞ rpm";
+            const ctx = m.ctx ? ` — ${(m.ctx / 1000).toFixed(0)}k ctx` : "";
+            const tags = m.tags?.length ? ` [${m.tags.join(",")}]` : "";
+            console.log(`  ${m.model.padEnd(55)}${rpm.padEnd(10)}${ctx} ${C.dim(tags)}`);
+        }
+    }
+    console.log(`\nadd with: sneezecli add <provider> <model> [tier]  |  or: sneezecli add --auto`);
+}
+function cmdAddAuto() {
+    const cfg = loadConfig();
+    let added = 0;
+    for (const m of CATALOG) {
+        if (m.tier === undefined)
+            continue;
+        // skip non-text models (asr/tts/image/embed) — the agent can't use them
+        if (m.tags?.some((t) => ["asr", "tts", "image", "embed"].includes(t)))
+            continue;
+        if (cfg.models.some((e) => e.provider === m.provider && e.model === m.model))
+            continue;
+        const entry = { provider: m.provider, model: m.model, tier: m.tier };
+        if (m.rpm !== undefined)
+            entry.rpm = m.rpm;
+        cfg.models.push(entry);
+        added++;
+    }
+    saveConfig(cfg);
+    console.log(`Added ${added} models from catalog at suggested tiers.`);
 }
 function cmdAdd(provider, model, tierStr, rpmStr) {
     if (!(provider in PROVIDERS)) {
@@ -213,13 +265,26 @@ async function main() {
         case "providers":
             cmdProviders();
             break;
+        case "models":
+            cmdModels(args[1], arg(args, "--tag"));
+            break;
         case "add": {
+            if (args[1] === "--auto") {
+                cmdAddAuto();
+                break;
+            }
             const provider = args[1];
             const model = args[2];
             const tier = args[3];
             const rpm = arg(args, "--rpm");
             if (!provider || !model) {
                 console.error("Usage: sneezecli add <provider> <model> [tier] [--rpm N]");
+                process.exit(1);
+            }
+            const cat = findCatalogModel(provider, model);
+            if (!cat) {
+                console.error(`"${model}" is not in the ${provider} catalog.`);
+                console.error(`Browse: sneezecli models ${provider}`);
                 process.exit(1);
             }
             cmdAdd(provider, model, tier, rpm);

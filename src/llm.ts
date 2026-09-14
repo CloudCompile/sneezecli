@@ -290,6 +290,53 @@ export async function chat(
   throw lastErr ?? new Error(`${def.name}: request failed`);
 }
 
+/**
+ * text.pollinations.ai/{prompt} — GET with the prompt URL-encoded in the path.
+ * No tools, no streaming. The whole conversation is flattened into one prompt.
+ * Always-on last resort when every keyed provider is rate-limited or down.
+ */
+async function chatNoAuth(
+  entry: ModelEntry,
+  req: ChatRequest,
+  cb?: StreamCallbacks
+): Promise<ChatResponse> {
+  const prompt =
+    req.messages
+      .filter((m) => m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length))
+      .map((m) => {
+        const label = m.role === "system" ? "Instructions" : m.role === "user" ? "User" : "Assistant";
+        return `${label}: ${m.content}`;
+      })
+      .join("\n\n") + "\n\nAssistant:";
+
+  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
+  let lastErr: Error | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 700));
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { Accept: "text/plain" } });
+    } catch (err: any) {
+      lastErr = new Error(`Pollinations no-auth: network error: ${err?.message ?? err}`);
+      continue;
+    }
+    if (res.status === 429) {
+      markRateLimited(entry);
+      lastErr = new HttpError(429, "Pollinations no-auth: rate limited");
+      continue;
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new HttpError(res.status, `Pollinations no-auth HTTP ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const text = await res.text();
+    recordRequest(entry, estTokens(req.messages), Math.ceil(text.length / 4));
+    if (cb?.onContent) cb.onContent(text);
+    return { content: text, toolCalls: [] };
+  }
+  throw lastErr ?? new Error("Pollinations no-auth: request failed");
+}
+
 interface ToolAcc {
   id: string;
   name: string;

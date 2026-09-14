@@ -1,4 +1,5 @@
 import { PROVIDERS } from "./providers.js";
+import { findCatalogModel } from "./catalog.js";
 import { readFileSync } from "node:fs";
 export class HttpError extends Error {
     status;
@@ -12,6 +13,11 @@ const rateStates = new Map();
 const cooldownUntil = new Map();
 export function entryKey(e) {
     return `${e.provider}:${e.model}`;
+}
+/** Rate-limit bucket key: provider-scoped limits share one bucket across models. */
+function bucketKey(e) {
+    const def = PROVIDERS[e.provider];
+    return def.limits.scope === "provider" ? `provider:${e.provider}` : entryKey(e);
 }
 function nowMinute() {
     return Math.floor(Date.now() / 60_000);
@@ -38,16 +44,17 @@ function getState(k) {
 /** Put a model on cooldown for the rest of this minute (after a 429). */
 export function markRateLimited(e) {
     const nextMinute = (nowMinute() + 1) * 60_000;
-    cooldownUntil.set(entryKey(e), nextMinute + 250);
+    cooldownUntil.set(bucketKey(e), nextMinute + 250);
 }
 export function checkBudget(e) {
     const def = PROVIDERS[e.provider];
-    const k = entryKey(e);
+    const k = bucketKey(e);
     const until = cooldownUntil.get(k);
     if (until && Date.now() < until) {
         return { ok: false, reason: `cooling down ${Math.ceil((until - Date.now()) / 1000)}s (429)` };
     }
-    const rpm = e.rpm ?? def.limits.rpm;
+    const cat = findCatalogModel(e.provider, e.model);
+    const rpm = e.rpm ?? cat?.rpm ?? def.limits.rpm;
     const s = getState(k);
     if (rpm !== undefined && s.minuteCount >= rpm) {
         return { ok: false, reason: `rpm cap ${rpm}` };
@@ -61,7 +68,7 @@ export function checkBudget(e) {
     return { ok: true };
 }
 function recordRequest(e, tokensIn, tokensOut) {
-    const s = getState(entryKey(e));
+    const s = getState(bucketKey(e));
     s.minuteCount++;
     s.dayCount++;
     s.tokensSpent += tokensIn + tokensOut;
@@ -137,10 +144,14 @@ export async function chat(entry, req, cb) {
         return r;
     }
     const key = apiKeyFor(entry);
-    if (!key)
+    if (!key && !def.keyless)
         throw new Error(`${def.name}: missing ${def.keyEnv} env var`);
     if (!def.baseUrl)
         throw new Error(`${def.name}: no baseUrl configured`);
+    // ── Pollinations no-auth adapter: v1/chat/completions → GET /{prompt} ──
+    if (entry.provider === "pollinations-noauth") {
+        return await chatNoAuth(entry, req, cb);
+    }
     const body = {
         model: entry.model,
         messages: req.messages,
@@ -201,6 +212,49 @@ export async function chat(entry, req, cb) {
         };
     }
     throw lastErr ?? new Error(`${def.name}: request failed`);
+}
+/**
+ * text.pollinations.ai/{prompt} — GET with the prompt URL-encoded in the path.
+ * No tools, no streaming. The whole conversation is flattened into one prompt.
+ * Always-on last resort when every keyed provider is rate-limited or down.
+ */
+async function chatNoAuth(entry, req, cb) {
+    const prompt = req.messages
+        .filter((m) => m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length))
+        .map((m) => {
+        const label = m.role === "system" ? "Instructions" : m.role === "user" ? "User" : "Assistant";
+        return `${label}: ${m.content}`;
+    })
+        .join("\n\n") + "\n\nAssistant:";
+    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
+    let lastErr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0)
+            await new Promise((r) => setTimeout(r, 700));
+        let res;
+        try {
+            res = await fetch(url, { headers: { Accept: "text/plain" } });
+        }
+        catch (err) {
+            lastErr = new Error(`Pollinations no-auth: network error: ${err?.message ?? err}`);
+            continue;
+        }
+        if (res.status === 429) {
+            markRateLimited(entry);
+            lastErr = new HttpError(429, "Pollinations no-auth: rate limited");
+            continue;
+        }
+        if (!res.ok) {
+            const text = await res.text();
+            throw new HttpError(res.status, `Pollinations no-auth HTTP ${res.status}: ${text.slice(0, 200)}`);
+        }
+        const text = await res.text();
+        recordRequest(entry, estTokens(req.messages), Math.ceil(text.length / 4));
+        if (cb?.onContent)
+            cb.onContent(text);
+        return { content: text, toolCalls: [] };
+    }
+    throw lastErr ?? new Error("Pollinations no-auth: request failed");
 }
 async function consumeStream(entry, req, res, cb) {
     const reader = res.body.getReader();
