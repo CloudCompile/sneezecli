@@ -104,7 +104,15 @@ sneezecli cost                       # session token/request usage
 ## Router features
 
 - **Capability-first**: lowest tier number available wins.
+- **Round-robin within tier**: consecutive calls rotate across same-tier models,
+	spreading load (critical for OpenRouter's 50 RPD account cap and for
+	multiplying Pollinations' per-model RPM). Cursor persists across processes.
 - **Budget tracking**: rpm, rpd, and one-time token budgets tracked per model.
+	Rate state persists across processes, so one-shot `run` invocations share
+	the same budgets as the REPL.
+- **Provider-scoped limits**: limits marked `scope: "provider"` (OpenRouter 50
+	rpd, TokenReply 3 rpm, InceptionLabs 100M tokens) are metered across ALL
+	models on that provider, not per model.
 - **429 cooldown**: a rate-limited model sits out the rest of the minute.
 - **Retry**: one automatic retry on 429/5xx/network errors before falling through.
 - **Context trimming**: keeps system prompt + recent messages when over budget.

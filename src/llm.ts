@@ -1,7 +1,9 @@
 import type { ModelEntry } from "./config.js";
 import { PROVIDERS } from "./providers.js";
 import { findCatalogModel } from "./catalog.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { homedir } from "node:os";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -62,8 +64,32 @@ export interface Usage {
 }
 
 export const usageLog = new Map<string, Usage>();
-const rateStates = new Map<string, RateState>();
 const cooldownUntil = new Map<string, number>();
+
+/** Rate state persisted to disk so one-shot `run` invocations share budgets. */
+const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/sneezecli/rate.json`;
+
+function loadRateStates(): Map<string, RateState> {
+  try {
+    if (existsSync(RATE_PATH)) {
+      return new Map(Object.entries(JSON.parse(readFileSync(RATE_PATH, "utf8"))));
+    }
+  } catch {
+    // corrupt state — start fresh
+  }
+  return new Map();
+}
+
+const rateStates = loadRateStates();
+
+function persistRateStates(): void {
+  try {
+    mkdirSync(dirname(RATE_PATH), { recursive: true });
+    writeFileSync(RATE_PATH, JSON.stringify(Object.fromEntries(rateStates)));
+  } catch {
+    // best-effort
+  }
+}
 
 export function entryKey(e: ModelEntry): string {
   return `${e.provider}:${e.model}`;
@@ -132,6 +158,7 @@ function recordRequest(e: ModelEntry, tokensIn: number, tokensOut: number): void
   s.minuteCount++;
   s.dayCount++;
   s.tokensSpent += tokensIn + tokensOut;
+  persistRateStates();
   const u = usageLog.get(entryKey(e)) ?? { requests: 0, tokensIn: 0, tokensOut: 0 };
   u.requests++;
   u.tokensIn += tokensIn;

@@ -22,6 +22,10 @@ export interface Config {
   yolo?: boolean;
   /** max context messages kept before trimming (default 40) */
   maxContextMessages?: number;
+  /** max agent loop iterations (default 40) */
+  maxIterations?: number;
+  /** optional session name shown in pickers */
+  name?: string;
 }
 
 const CONFIG_DIR = `${homedir()}/.config/sneezecli`;
@@ -67,6 +71,7 @@ export interface Session {
   id: string;
   created: string;
   cwd: string;
+  name?: string;
   messages: ChatMessageLite[];
 }
 

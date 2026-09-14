@@ -274,7 +274,7 @@ async function main(): Promise<void> {
       cmdProviders();
       break;
     case "models":
-      cmdModels(args[1], arg(args, "--tag"));
+      cmdModels(args[1] === "--tag" ? undefined : args[1], arg(args, "--tag"));
       break;
     case "add": {
       if (args[1] === "--auto") {

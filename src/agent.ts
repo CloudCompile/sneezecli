@@ -3,7 +3,11 @@ import { route } from "./router.js";
 import { runTool, toolDefs, isDangerous } from "./tools.js";
 import type { ModelEntry, Config } from "./config.js";
 
-const MAX_ITERATIONS = 40;
+export class AgentAborted extends Error {
+  constructor() {
+    super("aborted by user");
+  }
+}
 
 export interface AgentResult {
   finalText: string;
@@ -19,6 +23,8 @@ export interface AgentEvents {
   onContent?: (delta: string) => void;
   /** return true to approve a dangerous tool call in safe mode */
   confirm?: (tool: string, summary: string) => Promise<boolean>;
+  /** called to check if the run was aborted (e.g. Esc pressed) */
+  isAborted?: () => boolean;
 }
 
 export async function runAgent(
@@ -39,7 +45,11 @@ export async function runAgent(
 
   const tools = toolDefs();
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  const maxIter = cfg.maxIterations ?? 40;
+  for (let i = 0; i < maxIter; i++) {
+    if (events.isAborted?.()) {
+      throw new AgentAborted();
+    }
     const resp = await route(
       { messages, tools, maxTokens: cfg.maxTokens },
       pool,
@@ -59,6 +69,9 @@ export async function runAgent(
     });
 
     for (const tc of resp.toolCalls as ToolCall[]) {
+      if (events.isAborted?.()) {
+        throw new AgentAborted();
+      }
       let args: any = {};
       try {
         args = JSON.parse(tc.function.arguments || "{}");
@@ -90,7 +103,7 @@ export async function runAgent(
 
   return {
     finalText: "(max iterations reached without final answer)",
-    iterations: MAX_ITERATIONS,
+    iterations: maxIter,
     toolCallsMade,
     messages,
   };

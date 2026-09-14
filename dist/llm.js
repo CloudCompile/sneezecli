@@ -1,6 +1,8 @@
 import { PROVIDERS } from "./providers.js";
 import { findCatalogModel } from "./catalog.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { homedir } from "node:os";
 export class HttpError extends Error {
     status;
     constructor(status, message) {
@@ -9,8 +11,30 @@ export class HttpError extends Error {
     }
 }
 export const usageLog = new Map();
-const rateStates = new Map();
 const cooldownUntil = new Map();
+/** Rate state persisted to disk so one-shot `run` invocations share budgets. */
+const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/sneezecli/rate.json`;
+function loadRateStates() {
+    try {
+        if (existsSync(RATE_PATH)) {
+            return new Map(Object.entries(JSON.parse(readFileSync(RATE_PATH, "utf8"))));
+        }
+    }
+    catch {
+        // corrupt state — start fresh
+    }
+    return new Map();
+}
+const rateStates = loadRateStates();
+function persistRateStates() {
+    try {
+        mkdirSync(dirname(RATE_PATH), { recursive: true });
+        writeFileSync(RATE_PATH, JSON.stringify(Object.fromEntries(rateStates)));
+    }
+    catch {
+        // best-effort
+    }
+}
 export function entryKey(e) {
     return `${e.provider}:${e.model}`;
 }
@@ -72,6 +96,7 @@ function recordRequest(e, tokensIn, tokensOut) {
     s.minuteCount++;
     s.dayCount++;
     s.tokensSpent += tokensIn + tokensOut;
+    persistRateStates();
     const u = usageLog.get(entryKey(e)) ?? { requests: 0, tokensIn: 0, tokensOut: 0 };
     u.requests++;
     u.tokensIn += tokensIn;
