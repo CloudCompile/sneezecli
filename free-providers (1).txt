@@ -1,0 +1,195 @@
+FREE AI PROVIDER REGISTRY
+================================================================
+Generated: 2026-09-14T19:25:53.015Z
+Providers: 7  |  Models: 107
+
+KEY
+────────────────────────────────────────
+RPM    = Requests per minute  (∞ = no documented limit)
+RPD    = Requests per day     (∞ = no documented limit)
+I-TPM  = Input tokens per minute
+O-TPM  = Output tokens per minute
+BUDGET = One-time token allocation (not replenishing)
+BYOK   = Bring your own API key
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 1 — premium free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  OpenRouter
+  URL:    https://openrouter.ai/api/v1
+  Auth:   byok
+  RPM:    20   RPD: 50
+  Models (18):
+    - thinkingmachines/inkling-small:free  [20 RPM]  — 1m context
+    - thinkingmachines/inkling:free  [20 RPM]  — 1m context
+    - inclusionai/ling-3.0-flash-vl:free  [20 RPM]  — 262k context
+    - nvidia/nemotron-3-ultra-550b-a55b:free  [20 RPM]  — 1m context
+    - google/gemma-4-26b-a4b-it:free  [20 RPM]  — 262k context
+    - google/gemma-4-31b-it:free  [20 RPM]  — 1m context
+    - nvidia/nemotron-3.5-lightning:free  [20 RPM]  — 1m context
+    - nvidia/nemotron-3-super-120b-a12b:free  [20 RPM]  — 262k context
+    - cohere/north-mini-code:free  [20 RPM]  — 256k context
+    - liquid/lfm-2.5-2.6b:free  [20 RPM]  — 66k context
+    - dots-studio/dots-3-note-preview:free  [20 RPM]  — 512k context
+    - nex-agi/nex-n2.5-mini:free  [20 RPM]  — 262k context
+    - inclusionai/ling-3.0-flash-sante:free  [20 RPM]  — 262k context
+    - inclusionai/ling-3.0-flash-fin:free  [20 RPM]  — 262k context
+    - poolside/laguna-s-2.1:free  [20 RPM]  — 262k context
+    - poolside/laguna-xs-2.1:free  [20 RPM]  — 262k context
+    - nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free  [20 RPM]  — 256k context
+    - nvidia/nemotron-3.5-content-safety:free  [20 RPM]  — 128k context
+  Notes:  Hard 50 RPD across entire account. Best free model selection. Spend budget on hardest tasks only.
+  ────────────────────────────────────────────────────────────
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 2 — mid capable
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  InceptionLabs
+  URL:    https://api.inceptionlabs.ai/v1
+  Auth:   byok
+  RPM:    1K   RPD: ∞
+  I-TPM:  1M   O-TPM: 100K
+  Budget: 100M tokens (one-time)
+  Models (2):
+    - mercury-2  [1K RPM]  — shared token budget
+    - mercury-2.5  [1K RPM]  — shared token budget
+  Notes:  100M one-time token budget shared across all models. Output TPM (100K) is the real bottleneck. Budget drains in ~1.5h at full burn.
+  ────────────────────────────────────────────────────────────
+
+  TokenReply
+  URL:    https://api.tokenreply.com/v1
+  Auth:   byok
+  RPM:    3   RPD: ∞
+  Models (44):
+    - openai/gpt-oss-20b  [3 RPM]
+    - meta/llama-3.2-11b-vision-instruct  [3 RPM]
+    - meta/muse-glimmer-30b  [3 RPM]
+    - grok-4.20-fast  [3 RPM]
+    - nvidia/ising-calibration-1.5-31b  [3 RPM]
+    - nvidia/nemotron-3-super-120b-a12b  [3 RPM]
+    - dots-3-note-preview  [3 RPM]
+    - lfm-2.5-2.6b  [3 RPM]
+    - nvidia/nemotron-3.5-lightning-30b-a3b  [3 RPM]
+    - north-mini-code  [3 RPM]
+    - deepseek-ai/deepseek-v4-pro-0813  [3 RPM]
+    - google/gemma-4-26b-a4b-it  [3 RPM]
+    - openai/gpt-oss-120b  [3 RPM]
+    - ling-3.0-flash-fin-free  [3 RPM]
+    - laguna-s-2.1  [3 RPM]
+    - laguna-xs-2.1  [3 RPM]
+    - nvidia/nemotron-3-nano-30b-a3b  [3 RPM]
+    - nvidia/nemotron-3-nano-30b-a3b-reasoning  [3 RPM]
+    - moonshotai/kimi-k3  [3 RPM]
+    - nvidia/nemotron-3-ultra-550b-a55b  [3 RPM]
+    - google/gemma-4-31b-it  [3 RPM]
+    - google/diffusiongemma-26b-a4b-it  [3 RPM]
+    - nemotron-3.5-lightning-free  [3 RPM]
+    - big-pickle-thinking-free  [3 RPM]
+    - meta/llama-3.2-90b-vision-instruct  [3 RPM]
+    - mimo-v2.5-free  [3 RPM]
+    - nemotron-3-ultra-free  [3 RPM]
+    - big-pickle-free  [3 RPM]
+    - nemotron-3-ultra-thinking-free  [3 RPM]
+    - mimo-v2.5-thinking-free  [3 RPM]
+    - deepseek-ai/deepseek-v4-flash  [3 RPM]
+    - deepseek-ai/deepseek-v4-flash-0731  [3 RPM]
+    - nemotron-3.5-lightning-thinking-free  [3 RPM]
+    - grok-4.20-0309-non-reasoning  [3 RPM]
+    - grok-4.20-0309-reasoning  [3 RPM]
+    - grok-4.20-multi-agent-0309  [3 RPM]
+    - grok-4.20-multi-agent-high  [3 RPM]
+    - grok-4.20-multi-agent-low  [3 RPM]
+    - grok-4.20-multi-agent-medium  [3 RPM]
+    - grok-4.3  [3 RPM]
+    - grok-4.3-high  [3 RPM]
+    - grok-4.3-low  [3 RPM]
+    - grok-4.3-medium  [3 RPM]
+    - grok-build-0.1  [3 RPM]
+  Notes:  3 RPM cap across all models at any given time
+  ────────────────────────────────────────────────────────────
+
+  Requesty.AI
+  URL:    https://router.requesty.ai/v1
+  Auth:   byok
+  RPM:    ∞   RPD: 200
+  Models (12):
+    - nemotron-3.5-lightning-30b-a3b  [∞ RPM]
+    - muse-glimmer-30b  [∞ RPM]
+    - ling-3.0-tiny  [∞ RPM]
+    - nemotron-3.5-content-safety  [∞ RPM]
+    - nemotron-3-nano-omni-30b-a3b-reasoning  [∞ RPM]
+    - laguna-m.1  [∞ RPM]
+    - laguna-xs.2  [∞ RPM]
+    - nemotron-3-ultra-550b-a55b  [∞ RPM]
+    - leanstral-1-5  [∞ RPM]
+    - gemma-4-31b-it  [∞ RPM]
+    - nemotron-3-super-120b-a12b  [∞ RPM]
+    - nemotron-3-nano-30b-a3b  [∞ RPM]
+  ────────────────────────────────────────────────────────────
+
+  Logfare
+  URL:    https://logfare.ai/v1
+  Auth:   byok
+  RPM:    20   RPD: ∞
+  Models (8):
+    - gemma-4-26b  [∞ RPM]
+    - glm-5.3  [∞ RPM]
+    - kimi-k2.6  [∞ RPM]
+    - kimi-k3  [∞ RPM]
+    - logfare/auto  [∞ RPM]
+    - mimo-v2.5  [∞ RPM]
+    - moondream3.1  [∞ RPM]
+    - qwen-3.8-27b  [∞ RPM]
+  ────────────────────────────────────────────────────────────
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 3 — fast / bulk
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pollinations (gen)
+  URL:    https://gen.pollinations.ai/v1
+  Auth:   byok
+  RPM:    ∞   RPD: ∞
+  Models (22):
+    - community/chigwell/llm7-fast  [300 RPM]  — unlimited pollen
+    - community/morriszdweck/osaii-api-fast  [30 RPM]  — unlimited pollen
+    - community/morriszdweck/osaii-api-smart  [15 RPM]  — unlimited pollen
+    - community/YoannDev90/muse-glimmer-30b:free  [10 RPM]  — unlimited pollen
+    - community/scriptsnsenses-sys/muse-spark-1.2-contributor-free  [8 RPM]  — unlimited pollen
+    - community/scriptsnsenses-sys/glm-5.3-flash-free  [8 RPM]  — unlimited pollen
+    - community/scriptsnsenses-sys/gpt-5.6-luna  [8 RPM]  — unlimited pollen
+    - community/pegalink/jimmy  [5 RPM]  — unlimited pollen
+    - community/vendouple/muse-glimmer-30b:free  [5 RPM]  — unlimited pollen
+    - community/NamanSoni78/nemotron-3-ultra-550b-a55b  [∞ RPM]  — unlimited pollen
+    - community/NamanSoni78/gpt-5.4-nano  [∞ RPM]  — unlimited pollen
+    - community/NamanSoni78/nova-3  [∞ RPM]  — unlimited pollen
+    - community/NamanSoni78/whisper-large-v3  [∞ RPM]  — ASR — unlimited pollen
+    - community/NamanSoni78/whisper-large-v3-turbo  [∞ RPM]  — ASR — unlimited pollen
+    - community/NamanSoni78/llama-nemotron-embed-vl-1b-v2  [∞ RPM]  — embed — unlimited pollen
+    - community/NamanSoni78/FISH-AUDIO-S2.1-PRO  [∞ RPM]  — TTS — unlimited pollen
+    - community/NamanSoni78/aura-2-thalia-en  [∞ RPM]  — TTS — unlimited pollen
+    - community/NamanSoni78/aura-2-orpheus-en  [∞ RPM]  — TTS — unlimited pollen
+    - community/NamanSoni78/aura-2-atlas-en  [∞ RPM]  — TTS — unlimited pollen
+    - community/NamanSoni78/Imagine-4  [∞ RPM]  — image gen — unlimited pollen
+    - community/NamanSoni78/Z-Image-Turbo  [∞ RPM]  — image gen — unlimited pollen
+    - community/Spit-fires/muse-glimmer  [∞ RPM]  — unlimited pollen
+  Notes:  All models unlimited pollen (no daily cap). Per-model RPM limits apply. Round-robin across models to multiply effective throughput.
+  ────────────────────────────────────────────────────────────
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 4 — fallback / unlimited
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pollinations (no-auth)
+  URL:    https://text.pollinations.ai/{prompt}
+  Auth:   none
+  RPM:    ∞   RPD: ∞
+  Models (1):
+    - openai  [∞ RPM]  — GET text.pollinations.ai/{prompt}
+  Notes:  GET endpoint with prompt in URL path. No API key required. Needs adapter to translate v1/chat/completions → GET.
+  ────────────────────────────────────────────────────────────
+
+================================================================
