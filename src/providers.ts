@@ -8,7 +8,6 @@ export type ProviderId =
   | "requesty"
   | "logfare"
   | "pollinations"
-  | "pollinations-noauth"
   | "mock";
 
 export interface ProviderDef {
@@ -98,16 +97,6 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
     limits: { scope: "model" },
     notes:
       "Tier 3 — all models unlimited (no daily cap), per-model RPM limits. Round-robin across models to multiply throughput.",
-  },
-  "pollinations-noauth": {
-    id: "pollinations-noauth",
-    name: "Pollinations (no-auth)",
-    baseUrl: "https://text.pollinations.ai",
-    keyEnv: "",
-    limits: { scope: "model" },
-    keyless: true,
-    notes:
-      "Tier 4 — GET text.pollinations.ai/{prompt}, no API key, always-on last resort. No tools, no streaming.",
   },
   mock: {
     id: "mock",

@@ -78,6 +78,21 @@ after source changes.
 not support tools or streaming, so configuring a keyed provider is recommended
 for coding tasks.
 
+### Public model metadata
+
+Routing can refresh its model metadata without additional API keys:
+
+```bash
+sneezecli sync-models
+```
+
+The sync combines OpenRouter's official `/api/v1/models` catalog with the
+public Arena text/code leaderboards, the Hugging Face Open LLM Leaderboard
+dataset server, and the latest `Jwrede/llm-bench-data` benchmark snapshot.
+OpenRouter supplies the broad model facts—context size, modalities, pricing,
+and tool support—and those facts can be matched to equivalent models exposed
+through other providers.
+
 ### Interactive provider setup
 
 Use the provider flow instead of adding models one by one:

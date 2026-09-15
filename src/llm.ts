@@ -250,14 +250,6 @@ export async function chat(
   if (!key && !def.keyless) throw new Error(`${def.name}: missing ${def.keyEnv} env var`);
   if (!def.baseUrl) throw new Error(`${def.name}: no baseUrl configured`);
 
-  // ── Pollinations no-auth adapter: local chat shape → GET /{prompt} ──
-  if (entry.provider === "pollinations-noauth") {
-    if (req.tools?.length) {
-      throw new Error("Pollinations no-auth does not support tools; use a keyed provider for tool tasks");
-    }
-    return await chatNoAuth(entry, req, cb);
-  }
-
   const body: Record<string, unknown> = {
     model: entry.model,
     messages: req.messages,
@@ -319,64 +311,6 @@ export async function chat(
     };
   }
   throw lastErr ?? new Error(`${def.name}: request failed`);
-}
-
-/**
- * Adapt the browser-oriented text endpoint to the internal chat-completions
- * contract. The endpoint remains a GET; callers still receive ChatResponse.
- * No tools or streaming are possible, so the conversation is flattened into
- * one prompt. The endpoint's browser default is intentionally preserved by
- * omitting all query parameters, including `model`.
- */
-async function chatNoAuth(
-  entry: ModelEntry,
-  req: ChatRequest,
-  cb?: StreamCallbacks
-): Promise<ChatResponse> {
-  const system = req.messages.find((m) => m.role === "system")?.content;
-  const prompt =
-    req.messages
-      .filter((m) => m.role !== "system" && m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length))
-      .map((m) => {
-        const label = m.role === "user" ? "User" : "Assistant";
-        return `${label}: ${m.content}`;
-      })
-      .join("\n\n") + "\n\nAssistant:";
-
-  // Keep this exactly like the browser-tested endpoint: only the encoded
-  // prompt is sent in the path. The no-auth endpoint's default model is used;
-  // adding model or other query parameters can route through a budgeted key.
-  const url = `${PROVIDERS[entry.provider].baseUrl}/${encodeURIComponent(
-    system ? `${system}\n\n${prompt}` : prompt
-  )}`;
-  let lastErr: Error | undefined;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 700));
-    let res: Response;
-    try {
-      res = await fetch(url, { headers: { Accept: "text/plain" } });
-    } catch (err: any) {
-      lastErr = new Error(`Pollinations no-auth: network error: ${err?.message ?? err}`);
-      continue;
-    }
-    if (res.status === 429) {
-      markRateLimited(entry);
-      lastErr = new HttpError(429, "Pollinations no-auth: rate limited");
-      continue;
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new HttpError(res.status, `Pollinations no-auth HTTP ${res.status}: ${text.slice(0, 200)}`);
-    }
-    const text = await res.text();
-    if (/api key used for this request has reached its budget/i.test(text)) {
-      throw new HttpError(402, "Pollinations no-auth endpoint rejected the request because its server-side API-key budget is exhausted");
-    }
-    recordRequest(entry, estTokens(req.messages), Math.ceil(text.length / 4));
-    if (cb?.onContent) cb.onContent(text);
-    return { content: text, toolCalls: [] };
-  }
-  throw lastErr ?? new Error("Pollinations no-auth: request failed");
 }
 
 interface ToolAcc {
