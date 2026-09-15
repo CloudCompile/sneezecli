@@ -176,7 +176,7 @@ Available slash commands:
 /rename <name>        Rename the current session
 /delete-session       Delete a saved session
 /model                Show configured model count; routing is automatic
-/catalog              Choose a provider, then browse/add its models
+/catalog              Choose a provider and add all compatible models
 /pool                 Show the configured model pool
 /providers            List providers
 /usage                Show session usage
