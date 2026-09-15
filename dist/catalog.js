@@ -118,8 +118,6 @@ export const CATALOG = [
     { provider: "pollinations", model: "community/NamanSoni78/Imagine-4", tier: 4, tags: ["image"] },
     { provider: "pollinations", model: "community/NamanSoni78/Z-Image-Turbo", tier: 4, tags: ["image"] },
     { provider: "pollinations", model: "community/Spit-fires/muse-glimmer", tier: 4, tags: ["general"] },
-    // ── Pollinations no-auth (tier 4 — GET endpoint, no key, always-on) ──
-    { provider: "pollinations-noauth", model: "openai", tier: 5, tags: ["fallback", "no-tools"] },
 ];
 export function catalogFor(provider) {
     return CATALOG.filter((m) => m.provider === provider);

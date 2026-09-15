@@ -74,10 +74,6 @@ after source changes.
    sneezecli
    ```
 
-`pollinations-noauth` is available as a keyless last-resort provider. It does
-not support tools or streaming, so configuring a keyed provider is recommended
-for coding tasks.
-
 ### Public model metadata
 
 Routing can refresh its model metadata without additional API keys:
@@ -102,10 +98,9 @@ sneezecli --catalog
 ```
 
 Choose a provider, enter its API key when prompted, and sneezecli will add all
-compatible text models for that provider to the local pool. Keyless providers
-such as `pollinations-noauth` skip the key prompt. The provider key and model
-pool are saved in `~/.config/sneezecli/config.json`, so they are available the
-next time you run `sneezecli`.
+compatible text models for that provider to the local pool. The provider key
+and model pool are saved in `~/.config/sneezecli/config.json`, so they are
+available the next time you run `sneezecli`.
 
 Inside the TUI, `/catalog` or `/provider` opens the same flow. There is no
 visible model list in onboarding: selecting a provider configures it and adds
@@ -125,7 +120,6 @@ Current providers are:
 | `requesty` | Account-wide daily limit |
 | `logfare` | Account-wide RPM limit |
 | `pollinations` | Keyed, per-model limits |
-| `pollinations-noauth` | No key; tools and streaming unavailable |
 
 Routing is model-first rather than provider-tier-first. Each request is ranked
 using the model's capability, coding, arena-preference, speed, latency, and
