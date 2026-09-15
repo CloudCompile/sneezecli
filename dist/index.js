@@ -192,7 +192,7 @@ async function cmdRun(task, cfg, resumeId) {
     const missing = new Set();
     for (const m of cfg.models) {
         const def = PROVIDERS[m.provider];
-        if (!def.keyless && !process.env[def.keyEnv])
+        if (!def.keyless && !process.env[def.keyEnv] && !cfg.apiKeys?.[m.provider])
             missing.add(def.keyEnv);
     }
     if (missing.size > 0) {

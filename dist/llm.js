@@ -1,5 +1,6 @@
 import { PROVIDERS } from "./providers.js";
 import { findCatalogModel } from "./catalog.js";
+import { loadConfig } from "./config.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
@@ -110,7 +111,7 @@ function apiKeyFor(e) {
     const def = PROVIDERS[e.provider];
     if (def.keyless)
         return undefined;
-    return process.env[def.keyEnv];
+    return process.env[def.keyEnv] ?? loadConfig().apiKeys?.[e.provider];
 }
 // ---------- mock provider (dev dogfooding) ----------
 let mockCalls = 0;

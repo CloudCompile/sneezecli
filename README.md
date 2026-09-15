@@ -78,6 +78,23 @@ after source changes.
 not support tools or streaming, so configuring a keyed provider is recommended
 for coding tasks.
 
+### Interactive provider setup
+
+Use the provider flow instead of adding models one by one:
+
+```bash
+sneezecli --catalog
+```
+
+Choose a provider, enter its API key when prompted, and sneezecli will add all
+compatible text models for that provider to the local pool. Keyless providers
+such as `pollinations-noauth` skip the key prompt. The provider key and model
+pool are saved in `~/.config/sneezecli/config.json`, so they are available the
+next time you run `sneezecli`.
+
+Inside the TUI, `/catalog` or `/provider` opens the same flow. `/model` only
+selects among models already configured; it does not browse the entire catalog.
+
 ## Providers and routing
 
 The provider registry is deliberately closed and maintained by the project.

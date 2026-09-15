@@ -320,25 +320,18 @@ async function handleCommand(state, input, rl) {
                 console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} ${c.gray}${p.notes}${c.reset}`);
             }
             break;
+        case "/provider":
+        case "/add-provider": {
+            const prov = arg || (await withPicker(rl, pickProvider));
+            if (prov)
+                await configureProvider(state, rl, prov);
+            break;
+        }
         case "/catalog": {
             const prov = arg || (await withPicker(rl, pickProvider));
             if (!prov)
                 break;
-            const models = CATALOG.filter((m) => m.provider === prov);
-            const picked = await withPicker(rl, () => pick(`${prov} models (${models.length})`, models.map((m) => ({
-                label: m.model,
-                hint: `${m.rpm ? m.rpm + "rpm" : "∞"} ${m.ctx ? (m.ctx / 1000) + "k" : ""} ${(m.tags ?? []).join(",")}`,
-                value: m,
-            }))));
-            if (picked) {
-                const entry = {
-                    provider: picked.provider,
-                    model: picked.model,
-                    rpm: picked.rpm,
-                };
-                state.pool.push(entry);
-                console.log(c.green(`✓ added ${picked.provider}/${picked.model}`) + c.reset);
-            }
+            await configureProvider(state, rl, prov);
             break;
         }
         case "/cwd":
@@ -441,6 +434,47 @@ async function pickProvider() {
     const picked = await pick("Provider", provs.map((p) => ({ label: p.name, hint: p.id, value: p.id })));
     return picked;
 }
+async function configureProvider(state, rl, prov) {
+    const def = PROVIDERS[prov];
+    if (!def)
+        return;
+    if (!def.keyless) {
+        const key = await withPicker(rl, () => readSecret(`API key for ${def.name} (${def.keyEnv}): `));
+        if (!key) {
+            console.log(c.yellow("cancelled — no API key entered") + c.reset);
+            return;
+        }
+        state.cfg.apiKeys = { ...(state.cfg.apiKeys ?? {}), [prov]: key };
+    }
+    const models = CATALOG.filter((m) => m.provider === prov && !m.tags?.some((t) => ["asr", "tts", "image", "embed"].includes(t)));
+    const existing = new Set(state.pool.filter((m) => m.provider === prov).map((m) => m.model));
+    for (const model of models) {
+        if (!existing.has(model.model)) {
+            state.pool.push({ provider: prov, model: model.model, rpm: model.rpm });
+        }
+    }
+    state.cfg.models = state.pool;
+    saveConfig(state.cfg);
+    console.log(c.green(`✓ configured ${def.name}: added ${models.length - [...existing].filter((m) => models.some((x) => x.model === m)).length} models`) + c.reset);
+}
+async function readSecret(prompt) {
+    return new Promise((resolve) => {
+        process.stdout.write(`\n${c.bold}${prompt}${c.reset}`);
+        const previous = process.stdin.isRaw;
+        if (process.stdin.isTTY)
+            process.stdin.setRawMode(false);
+        const onData = (data) => {
+            process.stdin.removeListener("data", onData);
+            const value = data.toString().replace(/[\r\n]+$/, "").trim();
+            process.stdout.write("\n");
+            if (process.stdin.isTTY)
+                process.stdin.setRawMode(previous ?? false);
+            resolve(value || undefined);
+        };
+        process.stdin.once("data", onData);
+        process.stdin.resume();
+    });
+}
 async function withPicker(rl, fn) {
     rl.pause();
     try {
@@ -516,7 +550,8 @@ function printHelp() {
         ["/rename <n>", "name current session"],
         ["/delete-session", "remove a saved session"],
         ["/model", "choose among configured models"],
-        ["/catalog [prov]", "choose provider, browse/add models"],
+        ["/catalog [prov]", "configure provider and add all models"],
+        ["/provider [id]", "configure one provider"],
         ["/pool", "show model pool"],
         ["/providers", "list providers"],
         ["/usage", "token/request usage"],
