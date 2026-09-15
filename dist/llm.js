@@ -228,9 +228,11 @@ export async function chat(entry, req, cb) {
         const tokensIn = json.usage?.prompt_tokens ?? estTokens(req.messages);
         const tokensOut = json.usage?.completion_tokens ?? Math.ceil((choice.content?.length ?? 0) / 4);
         recordRequest(entry, tokensIn, tokensOut);
+        const content = choice.content ?? "";
+        const toolCalls = choice.tool_calls?.length ? choice.tool_calls : parseEmbeddedToolCalls(content);
         return {
-            content: choice.content ?? "",
-            toolCalls: choice.tool_calls ?? [],
+            content,
+            toolCalls,
             raw: json,
         };
     }
@@ -290,12 +292,42 @@ async function consumeStream(entry, req, res, cb) {
         }
     }
     recordRequest(entry, tokensIn, tokensOut);
-    const toolCalls = [...toolAcc.entries()]
+    let toolCalls = [...toolAcc.entries()]
         .sort(([a], [b]) => a - b)
         .map(([, acc]) => ({
         id: acc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
         type: "function",
         function: { name: acc.name, arguments: acc.args },
     }));
+    if (toolCalls.length === 0)
+        toolCalls = parseEmbeddedToolCalls(content);
     return { content, toolCalls };
+}
+/** Recover the simple XML-like tool format emitted by some OpenAI-compatible
+ * free models instead of treating it as a successful final answer. */
+export function parseEmbeddedToolCalls(content) {
+    const calls = [];
+    const re = /<tool_call>\s*<function=([^>]+)>([\s\S]*?)<\/function>\s*<\/tool_call>/gi;
+    let match;
+    while ((match = re.exec(content))) {
+        const args = {};
+        const body = match[2];
+        const parameters = /<parameter=([^>]+)>([\s\S]*?)<\/parameter>/gi;
+        let parameter;
+        while ((parameter = parameters.exec(body))) {
+            const value = parameter[2].trim();
+            try {
+                args[parameter[1]] = JSON.parse(value);
+            }
+            catch {
+                args[parameter[1]] = value;
+            }
+        }
+        calls.push({
+            id: `embedded_${calls.length + 1}`,
+            type: "function",
+            function: { name: match[1].trim(), arguments: JSON.stringify(args) },
+        });
+    }
+    return calls;
 }

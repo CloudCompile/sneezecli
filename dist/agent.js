@@ -13,12 +13,14 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
     }
     messages.push({ role: "user", content: userTask });
     const tools = toolDefs();
+    let selectedModel;
     const maxIter = cfg.maxIterations ?? 40;
     for (let i = 0; i < maxIter; i++) {
         if (events.isAborted?.()) {
             throw new AgentAborted();
         }
-        const resp = await route({ messages, tools, maxTokens: cfg.maxTokens }, pool, { onContent: events.onContent }, userTask);
+        const resp = await route({ messages, tools, maxTokens: cfg.maxTokens }, pool, { onContent: events.onContent }, userTask, selectedModel);
+        selectedModel = resp.entry;
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {
             messages.push({ role: "assistant", content: resp.content });

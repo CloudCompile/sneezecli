@@ -38,7 +38,7 @@ const modelCursor = loadCursor();
  * cooldown to expire and retry the same model (up to 2 waits) before
  * falling to the next tier — preserving capability-first ordering.
  */
-export async function route(req, pool, cb, task = "") {
+export async function route(req, pool, cb, task = "", preferred) {
     const attempts = [];
     // Tiny local smoke-test models can answer text but may ignore the tool
     // protocol. Do not let one of them win a coding-agent turn when a capable
@@ -49,6 +49,16 @@ export async function route(req, pool, cb, task = "") {
         : pool;
     const candidates = toolCapable.length > 0 ? toolCapable : pool;
     const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+    // Keep one model for the whole agent turn whenever possible. Switching
+    // models between tool calls loses provider-specific formatting and context
+    // discipline, which is especially damaging on small/free models.
+    if (preferred) {
+        const preferredIndex = ranked.findIndex((e) => e.provider === preferred.provider && e.model === preferred.model);
+        if (preferredIndex > 0) {
+            const [entry] = ranked.splice(preferredIndex, 1);
+            ranked.unshift(entry);
+        }
+    }
     const groups = new Map();
     for (const entry of ranked) {
         const score = Math.round(scoreModel(entry, task));
