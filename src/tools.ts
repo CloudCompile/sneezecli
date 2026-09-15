@@ -55,7 +55,12 @@ export const TOOLS: ToolImpl[] = [
     run: async (args, ctx) => {
       const p = abs(ctx, args.path);
       if (!existsSync(p)) return `ERROR: ${p} does not exist`;
-      const lines = readFileSync(p, "utf8").split("\n");
+      const text = readFileSync(p, "utf8");
+      // Treat CRLF as one newline and do not expose the synthetic empty line
+      // produced by a trailing newline. This keeps displayed line numbers
+      // consistent with `wc -l` and benchmark fixtures.
+      const lines = text.replace(/\r\n/g, "\n").split("\n");
+      if (lines.length > 1 && lines.at(-1) === "") lines.pop();
       const start = Math.max(1, args.offset ?? 1);
       const end = Math.min(lines.length, start + (args.limit ?? 2000) - 1);
       const out = lines
