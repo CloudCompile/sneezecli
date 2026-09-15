@@ -22,6 +22,7 @@ function usage(): never {
 
 Usage:
   sneezecli                                Interactive TUI (main mode)
+  sneezecli --catalog                      Interactive provider/model catalog
   sneezecli run "<task>"                   One-shot agent task
   sneezecli -p "<task>"                    Same as run
   sneezecli run "<task>" --yolo            Auto-approve dangerous tools
@@ -200,7 +201,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
   const missing = new Set<string>();
   for (const m of cfg.models) {
     const def = PROVIDERS[m.provider];
-    if (!def.keyless && !process.env[def.keyEnv]) missing.add(def.keyEnv);
+    if (!def.keyless && !process.env[def.keyEnv] && !cfg.apiKeys?.[m.provider]) missing.add(def.keyEnv);
   }
   if (missing.size > 0) {
     console.error(`Missing API keys: ${[...missing].join(", ")}`);
@@ -248,6 +249,12 @@ function cmdCost(): void {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const cmd = args[0];
+
+  if (cmd === "--catalog" || cmd === "catalog") {
+    const cfg = loadConfig();
+    await startTui(cfg.models, cfg, process.cwd(), "/catalog");
+    return;
+  }
 
   if (!cmd || cmd === "-h" || cmd === "--help" || cmd === "help") {
     // no args = TUI mode

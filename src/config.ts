@@ -16,6 +16,8 @@ export interface ModelEntry {
 
 export interface Config {
   models: ModelEntry[];
+  /** Provider API keys entered through the interactive setup flow. */
+  apiKeys?: Partial<Record<ProviderId, string>>;
   maxTokens?: number;
   systemPrompt?: string;
   /** auto-approve tool calls without prompting (default: prompt for writes/bash) */

@@ -1,6 +1,6 @@
 import * as readline from "node:readline";
 import { runAgent, AgentAborted } from "./agent.js";
-import { saveSession, listSessions, newSessionId, deleteSession, } from "./config.js";
+import { saveSession, saveConfig, listSessions, newSessionId, deleteSession, } from "./config.js";
 import { PROVIDERS, visibleProviders } from "./providers.js";
 import { CATALOG } from "./catalog.js";
 import { usageLog, checkBudget } from "./llm.js";
@@ -47,7 +47,8 @@ function enableRaw(h) {
     if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
         process.stdin.resume();
-        process.stdin.on("data", (d) => h.onKey(d.toString(), d));
+        h.listener = (d) => h.onKey(d.toString(), d);
+        process.stdin.on("data", h.listener);
     }
 }
 function disableRaw() {
@@ -70,7 +71,7 @@ async function pick(title, items, current) {
                 return `${arrow}${label}${hint}`;
             });
             console.clear();
-            console.log(box(title, lines.slice(0, 30), 90));
+            console.log(box(title, lines.slice(0, 30), 90).join("\n"));
             console.log(c.gray("  ↑/↓ move · enter select · esc cancel · type to filter") + c.reset);
         };
         const refilter = () => {
@@ -112,7 +113,8 @@ async function pick(title, items, current) {
             },
         };
         function cleanup() {
-            process.stdin.removeListener("data", h.onKey);
+            if (h.listener)
+                process.stdin.removeListener("data", h.listener);
             disableRaw();
             console.clear();
         }
@@ -143,12 +145,14 @@ async function confirmPrompt(tool, summary) {
         };
         function cleanup() {
             process.stdout.write("\n");
-            process.stdin.removeListener("data", h.onKey);
+            if (h.listener)
+                process.stdin.removeListener("data", h.listener);
+            disableRaw();
         }
         enableRaw(h);
     });
 }
-export async function startTui(pool, cfg, cwd) {
+export async function startTui(pool, cfg, cwd, initialCommand) {
     const queue = [];
     const state = {
         session: { id: newSessionId(), created: new Date().toISOString(), cwd, messages: [] },
@@ -211,6 +215,11 @@ export async function startTui(pool, cfg, cwd) {
         console.log(c.gray("\nbye") + c.reset);
         process.exit(0);
     });
+    if (initialCommand) {
+        await handleCommand(state, initialCommand, rl);
+        if (!state.running)
+            rl.prompt();
+    }
 }
 function banner(state) {
     const poolInfo = state.pool.length
@@ -285,16 +294,21 @@ async function handleCommand(state, input, rl) {
             break;
         case "/model":
         case "/models": {
-            const picked = await pickModel(state);
+            if (state.pool.length === 0) {
+                console.log(c.gray("no configured models — use /catalog to add one or run `sneezecli add --auto`") + c.reset);
+                break;
+            }
+            const picked = await withPicker(rl, () => pickConfiguredModel(state));
             if (picked) {
                 state.pool = [picked, ...state.pool.filter((m) => !(m.provider === picked.provider && m.model === picked.model))];
+                saveConfig({ ...state.cfg, models: state.pool });
                 console.log(c.green(`✓ primary model: ${c.bold}${picked.provider}/${picked.model}${c.reset}`) + c.reset);
             }
             break;
         }
         case "/pool":
             if (state.pool.length === 0)
-                console.log(c.gray("pool is empty — /model to add") + c.reset);
+                console.log(c.gray("pool is empty — /catalog to add models") + c.reset);
             state.pool.forEach((m, i) => {
                 const def = PROVIDERS[m.provider];
                 const b = checkBudget(m);
@@ -307,15 +321,15 @@ async function handleCommand(state, input, rl) {
             }
             break;
         case "/catalog": {
-            const prov = arg || (await pickProvider());
+            const prov = arg || (await withPicker(rl, pickProvider));
             if (!prov)
                 break;
             const models = CATALOG.filter((m) => m.provider === prov);
-            const picked = await pick(`${prov} models (${models.length})`, models.map((m) => ({
+            const picked = await withPicker(rl, () => pick(`${prov} models (${models.length})`, models.map((m) => ({
                 label: m.model,
                 hint: `${m.rpm ? m.rpm + "rpm" : "∞"} ${m.ctx ? (m.ctx / 1000) + "k" : ""} ${(m.tags ?? []).join(",")}`,
                 value: m,
-            })));
+            }))));
             if (picked) {
                 const entry = {
                     provider: picked.provider,
@@ -427,27 +441,22 @@ async function pickProvider() {
     const picked = await pick("Provider", provs.map((p) => ({ label: p.name, hint: p.id, value: p.id })));
     return picked;
 }
-async function pickModel(state) {
-    const prov = await pickProvider();
-    if (!prov)
-        return undefined;
-    const models = CATALOG.filter((m) => m.provider === prov);
-    if (models.length === 0) {
-        console.log(c.red(`no models for ${prov}`) + c.reset);
-        return undefined;
+async function withPicker(rl, fn) {
+    rl.pause();
+    try {
+        return await fn();
     }
-    const picked = await pick(`${PROVIDERS[prov]?.name ?? prov} models`, models.map((m) => ({
-        label: m.model,
-        hint: `${m.rpm ? m.rpm + "rpm" : "∞"}${m.ctx ? ` · ${Math.round(m.ctx / 1000)}k ctx` : ""}${(m.tags ?? []).length ? ` · ${(m.tags ?? []).join(",")}` : ""}`,
+    finally {
+        rl.resume();
+    }
+}
+async function pickConfiguredModel(state) {
+    const picked = await pick("Configured models", state.pool.map((m) => ({
+        label: `${m.provider}/${m.model}`,
+        hint: m.priority !== undefined ? `priority ${m.priority}` : "auto-ranked",
         value: m,
     })));
-    if (!picked)
-        return undefined;
-    return {
-        provider: picked.provider,
-        model: picked.model,
-        rpm: picked.rpm,
-    };
+    return picked;
 }
 async function compactSession(state) {
     const msgs = state.session.messages;
@@ -506,8 +515,8 @@ function printHelp() {
         ["/sessions", "list saved sessions"],
         ["/rename <n>", "name current session"],
         ["/delete-session", "remove a saved session"],
-        ["/model", "pick primary model (picker)"],
-        ["/catalog [prov]", "browse catalog, add model"],
+        ["/model", "choose among configured models"],
+        ["/catalog [prov]", "choose provider, browse/add models"],
         ["/pool", "show model pool"],
         ["/providers", "list providers"],
         ["/usage", "token/request usage"],
@@ -544,7 +553,8 @@ async function agentTurn(state, task, rl) {
     if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
         process.stdin.resume();
-        process.stdin.on("data", escHandler.onKey);
+        escHandler.listener = (d) => escHandler.onKey(d.toString(), d);
+        process.stdin.on("data", escHandler.listener);
     }
     const events = {
         onModel: (p, m) => {
@@ -578,7 +588,8 @@ async function agentTurn(state, task, rl) {
     }
     finally {
         if (process.stdin.isTTY) {
-            process.stdin.removeListener("data", escHandler.onKey);
+            if (escHandler.listener)
+                process.stdin.removeListener("data", escHandler.listener);
             process.stdin.setRawMode(false);
         }
         state.abort = null;

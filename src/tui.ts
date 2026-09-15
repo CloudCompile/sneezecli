@@ -3,6 +3,7 @@ import { runAgent, AgentAborted, type AgentEvents } from "./agent.js";
 import type { ModelEntry, Config, Session } from "./config.js";
 import {
   saveSession,
+  saveConfig,
   loadSession,
   listSessions,
   newSessionId,
@@ -58,13 +59,15 @@ function truncate(s: string, n: number): string {
 // ── raw-mode key input ────────────────────────────────────────────────
 interface KeyHandler {
   onKey: (key: string, data: Buffer) => void;
+  listener?: (data: Buffer) => void;
 }
 
 function enableRaw(h: KeyHandler): void {
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.on("data", (d) => h.onKey(d.toString(), d));
+    h.listener = (d: Buffer) => h.onKey(d.toString(), d);
+    process.stdin.on("data", h.listener);
   }
 }
 
@@ -93,7 +96,7 @@ async function pick<T>(
         return `${arrow}${label}${hint}`;
       });
       console.clear();
-      console.log(box(title, lines.slice(0, 30), 90));
+      console.log(box(title, lines.slice(0, 30), 90).join("\n"));
       console.log(c.gray("  ↑/↓ move · enter select · esc cancel · type to filter") + c.reset);
     };
     const refilter = (): void => {
@@ -128,7 +131,7 @@ async function pick<T>(
       },
     };
     function cleanup(): void {
-      process.stdin.removeListener("data", h.onKey);
+      if (h.listener) process.stdin.removeListener("data", h.listener);
       disableRaw();
       console.clear();
     }
@@ -160,7 +163,8 @@ async function confirmPrompt(tool: string, summary: string): Promise<boolean> {
     };
     function cleanup(): void {
       process.stdout.write("\n");
-      process.stdin.removeListener("data", h.onKey);
+      if (h.listener) process.stdin.removeListener("data", h.listener);
+      disableRaw();
     }
     enableRaw(h);
   });
@@ -178,7 +182,7 @@ interface TuiState {
   lastModel: string;
 }
 
-export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string): Promise<void> {
+export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, initialCommand?: string): Promise<void> {
   const queue: string[] = [];
   const state: TuiState = {
     session: { id: newSessionId(), created: new Date().toISOString(), cwd, messages: [] },
@@ -245,6 +249,11 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string): Pr
     console.log(c.gray("\nbye") + c.reset);
     process.exit(0);
   });
+
+  if (initialCommand) {
+    await handleCommand(state, initialCommand, rl);
+    if (!state.running) rl.prompt();
+  }
 }
 
 function banner(state: TuiState): void {
@@ -325,9 +334,14 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
       break;
     case "/model":
     case "/models": {
-      const picked = await pickModel(state);
+      if (state.pool.length === 0) {
+        console.log(c.gray("no configured models — use /catalog to add one or run `sneezecli add --auto`") + c.reset);
+        break;
+      }
+      const picked = await withPicker(rl, () => pickConfiguredModel(state));
       if (picked) {
         state.pool = [picked, ...state.pool.filter((m) => !(m.provider === picked.provider && m.model === picked.model))];
+        saveConfig({ ...state.cfg, models: state.pool });
         console.log(
           c.green(`✓ primary model: ${c.bold}${picked.provider}/${picked.model}${c.reset}`) + c.reset
         );
@@ -335,7 +349,7 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
       break;
     }
     case "/pool":
-      if (state.pool.length === 0) console.log(c.gray("pool is empty — /model to add") + c.reset);
+      if (state.pool.length === 0) console.log(c.gray("pool is empty — /catalog to add models") + c.reset);
       state.pool.forEach((m, i) => {
         const def = PROVIDERS[m.provider];
         const b = checkBudget(m);
@@ -349,27 +363,16 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
         console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} ${c.gray}${p.notes}${c.reset}`);
       }
       break;
+    case "/provider":
+    case "/add-provider": {
+      const prov = arg || (await withPicker(rl, pickProvider));
+      if (prov) await configureProvider(state, rl, prov);
+      break;
+    }
     case "/catalog": {
-      const prov = arg || (await pickProvider());
+      const prov = arg || (await withPicker(rl, pickProvider));
       if (!prov) break;
-      const models = CATALOG.filter((m) => m.provider === prov);
-      const picked = await pick(
-        `${prov} models (${models.length})`,
-        models.map((m) => ({
-          label: m.model,
-          hint: `${m.rpm ? m.rpm + "rpm" : "∞"} ${m.ctx ? (m.ctx / 1000) + "k" : ""} ${(m.tags ?? []).join(",")}`,
-          value: m,
-        }))
-      );
-      if (picked) {
-        const entry: ModelEntry = {
-          provider: picked.provider as ModelEntry["provider"],
-          model: picked.model,
-          rpm: picked.rpm,
-        };
-        state.pool.push(entry);
-        console.log(c.green(`✓ added ${picked.provider}/${picked.model}`) + c.reset);
-      }
+      await configureProvider(state, rl, prov);
       break;
     }
     case "/cwd":
@@ -469,28 +472,67 @@ async function pickProvider(): Promise<string | undefined> {
   return picked;
 }
 
-async function pickModel(state: TuiState): Promise<ModelEntry | undefined> {
-  const prov = await pickProvider();
-  if (!prov) return undefined;
-  const models = CATALOG.filter((m) => m.provider === prov);
-  if (models.length === 0) {
-    console.log(c.red(`no models for ${prov}`) + c.reset);
-    return undefined;
+async function configureProvider(state: TuiState, rl: readline.Interface, prov: string): Promise<void> {
+  const def = PROVIDERS[prov as keyof typeof PROVIDERS];
+  if (!def) return;
+
+  if (!def.keyless) {
+    const key = await withPicker(rl, () => readSecret(`API key for ${def.name} (${def.keyEnv}): `));
+    if (!key) {
+      console.log(c.yellow("cancelled — no API key entered") + c.reset);
+      return;
+    }
+    state.cfg.apiKeys = { ...(state.cfg.apiKeys ?? {}), [prov]: key };
   }
+
+  const models = CATALOG.filter((m) => m.provider === prov && !m.tags?.some((t) => ["asr", "tts", "image", "embed"].includes(t)));
+  const existing = new Set(state.pool.filter((m) => m.provider === prov).map((m) => m.model));
+  for (const model of models) {
+    if (!existing.has(model.model)) {
+      state.pool.push({ provider: prov as ModelEntry["provider"], model: model.model, rpm: model.rpm });
+    }
+  }
+  state.cfg.models = state.pool;
+  saveConfig(state.cfg);
+  console.log(c.green(`✓ configured ${def.name}: added ${models.length - [...existing].filter((m) => models.some((x) => x.model === m)).length} models`) + c.reset);
+}
+
+async function readSecret(prompt: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    process.stdout.write(`\n${c.bold}${prompt}${c.reset}`);
+    const previous = process.stdin.isRaw;
+    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    const onData = (data: Buffer) => {
+      process.stdin.removeListener("data", onData);
+      const value = data.toString().replace(/[\r\n]+$/, "").trim();
+      process.stdout.write("\n");
+      if (process.stdin.isTTY) process.stdin.setRawMode(previous ?? false);
+      resolve(value || undefined);
+    };
+    process.stdin.once("data", onData);
+    process.stdin.resume();
+  });
+}
+
+async function withPicker<T>(rl: readline.Interface, fn: () => Promise<T>): Promise<T> {
+  rl.pause();
+  try {
+    return await fn();
+  } finally {
+    rl.resume();
+  }
+}
+
+async function pickConfiguredModel(state: TuiState): Promise<ModelEntry | undefined> {
   const picked = await pick(
-    `${PROVIDERS[prov as keyof typeof PROVIDERS]?.name ?? prov} models`,
-    models.map((m) => ({
-      label: m.model,
-      hint: `${m.rpm ? m.rpm + "rpm" : "∞"}${m.ctx ? ` · ${Math.round(m.ctx / 1000)}k ctx` : ""}${(m.tags ?? []).length ? ` · ${(m.tags ?? []).join(",")}` : ""}`,
+    "Configured models",
+    state.pool.map((m) => ({
+      label: `${m.provider}/${m.model}`,
+      hint: m.priority !== undefined ? `priority ${m.priority}` : "auto-ranked",
       value: m,
     }))
   );
-  if (!picked) return undefined;
-  return {
-    provider: picked.provider as ModelEntry["provider"],
-    model: picked.model,
-    rpm: picked.rpm,
-  };
+  return picked;
 }
 
 async function compactSession(state: TuiState): Promise<void> {
@@ -562,8 +604,9 @@ function printHelp(): void {
     ["/sessions", "list saved sessions"],
     ["/rename <n>", "name current session"],
     ["/delete-session", "remove a saved session"],
-    ["/model", "pick primary model (picker)"],
-    ["/catalog [prov]", "browse catalog, add model"],
+    ["/model", "choose among configured models"],
+    ["/catalog [prov]", "configure provider and add all models"],
+    ["/provider [id]", "configure one provider"],
     ["/pool", "show model pool"],
     ["/providers", "list providers"],
     ["/usage", "token/request usage"],
@@ -602,7 +645,8 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.on("data", escHandler.onKey);
+    escHandler.listener = (d: Buffer) => escHandler.onKey(d.toString(), d);
+    process.stdin.on("data", escHandler.listener);
   }
 
   const events: AgentEvents = {
@@ -643,7 +687,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
     saveSession(state.session);
   } finally {
     if (process.stdin.isTTY) {
-      process.stdin.removeListener("data", escHandler.onKey);
+      if (escHandler.listener) process.stdin.removeListener("data", escHandler.listener);
       process.stdin.setRawMode(false);
     }
     state.abort = null;

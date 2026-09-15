@@ -1,6 +1,7 @@
 import type { ModelEntry } from "./config.js";
 import { PROVIDERS } from "./providers.js";
 import { findCatalogModel } from "./catalog.js";
+import { loadConfig } from "./config.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
@@ -173,7 +174,7 @@ function estTokens(msgs: ChatMessage[]): number {
 function apiKeyFor(e: ModelEntry): string | undefined {
   const def = PROVIDERS[e.provider];
   if (def.keyless) return undefined;
-  return process.env[def.keyEnv];
+  return process.env[def.keyEnv] ?? loadConfig().apiKeys?.[e.provider];
 }
 
 // ---------- mock provider (dev dogfooding) ----------

@@ -18,6 +18,7 @@ function usage() {
 
 Usage:
   sneezecli                                Interactive TUI (main mode)
+  sneezecli --catalog                      Interactive provider/model catalog
   sneezecli run "<task>"                   One-shot agent task
   sneezecli -p "<task>"                    Same as run
   sneezecli run "<task>" --yolo            Auto-approve dangerous tools
@@ -240,6 +241,11 @@ function cmdCost() {
 async function main() {
     const args = process.argv.slice(2);
     const cmd = args[0];
+    if (cmd === "--catalog" || cmd === "catalog") {
+        const cfg = loadConfig();
+        await startTui(cfg.models, cfg, process.cwd(), "/catalog");
+        return;
+    }
     if (!cmd || cmd === "-h" || cmd === "--help" || cmd === "help") {
         // no args = TUI mode
         if (!cmd) {

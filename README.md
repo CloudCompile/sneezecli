@@ -156,8 +156,8 @@ Available slash commands:
 /sessions             List saved sessions
 /rename <name>        Rename the current session
 /delete-session       Delete a saved session
-/model                Pick a model from the catalog
-/catalog              Browse the model catalog
+/model                Choose among configured models
+/catalog              Choose a provider, then browse/add its models
 /pool                 Show the configured model pool
 /providers            List providers
 /usage                Show session usage
