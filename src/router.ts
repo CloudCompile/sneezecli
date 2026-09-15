@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat, type ChatRequest, type ChatResponse, type StreamCallbacks } from "./llm.js";
-import { scoreModel } from "./model-data.js";
+import { metadataFor, scoreModel } from "./model-data.js";
 
 export interface RouteAttempt {
   entry: ModelEntry;
@@ -62,7 +62,15 @@ export async function route(
   task = ""
 ): Promise<RouteResult> {
   const attempts: RouteAttempt[] = [];
-  const ranked = [...pool].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+  // Tiny local smoke-test models can answer text but may ignore the tool
+  // protocol. Do not let one of them win a coding-agent turn when a capable
+  // configured provider is available. If it is the only configured model,
+  // retain it as a fallback so simple local prompts still work.
+  const toolCapable = req.tools?.length
+    ? pool.filter((entry) => metadataFor(entry).supportsTools !== false)
+    : pool;
+  const candidates = toolCapable.length > 0 ? toolCapable : pool;
+  const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
   const groups = new Map<number, ModelEntry[]>();
   for (const entry of ranked) {
     const score = Math.round(scoreModel(entry, task));

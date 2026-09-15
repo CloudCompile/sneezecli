@@ -9,6 +9,7 @@ const FALLBACK_DATA = {
         provider: m.provider,
         model: m.model,
         context: m.ctx,
+        supportsTools: m.supportsTools,
         tags: m.tags,
         source: "built-in-catalog",
     })),
@@ -38,6 +39,7 @@ export function metadataFor(entry) {
         provider: entry.provider,
         model: entry.model,
         context: catalog?.ctx,
+        supportsTools: catalog?.supportsTools,
         tags: catalog?.tags,
         source: "built-in-catalog",
     };

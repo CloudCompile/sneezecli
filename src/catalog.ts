@@ -11,6 +11,8 @@ export interface CatalogModel {
   model: string;
   rpm?: number;
   ctx?: number;
+  /** Whether the model is expected to honor OpenAI tool definitions. */
+  supportsTools?: boolean;
   tags?: string[];
   /** legacy source annotation; not used for routing */
   tier?: number;
@@ -18,7 +20,7 @@ export interface CatalogModel {
 
 export const CATALOG: CatalogModel[] = [
   // ── Local Ollama smoke-test model ──
-    { provider: "ollama", model: "hf.co/LiquidAI/LFM2.5-230M-GGUF:latest", ctx: 32_768, tier: 1, tags: ["fast", "local", "workhorse"] },
+  { provider: "ollama", model: "hf.co/LiquidAI/LFM2.5-230M-GGUF:latest", ctx: 32_768, tier: 1, supportsTools: false, tags: ["fast", "local"] },
   // ── OpenRouter (tier 1 — 50 rpd account-wide, spend on hardest tasks) ──
   { provider: "openrouter", model: "thinkingmachines/inkling-small:free", rpm: 20, ctx: 1_000_000, tier: 1, tags: ["reasoning"] },
   { provider: "openrouter", model: "thinkingmachines/inkling:free", rpm: 20, ctx: 1_000_000, tier: 1, tags: ["reasoning"] },

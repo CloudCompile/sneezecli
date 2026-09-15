@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat } from "./llm.js";
-import { scoreModel } from "./model-data.js";
+import { metadataFor, scoreModel } from "./model-data.js";
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
@@ -40,7 +40,15 @@ const modelCursor = loadCursor();
  */
 export async function route(req, pool, cb, task = "") {
     const attempts = [];
-    const ranked = [...pool].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+    // Tiny local smoke-test models can answer text but may ignore the tool
+    // protocol. Do not let one of them win a coding-agent turn when a capable
+    // configured provider is available. If it is the only configured model,
+    // retain it as a fallback so simple local prompts still work.
+    const toolCapable = req.tools?.length
+        ? pool.filter((entry) => metadataFor(entry).supportsTools !== false)
+        : pool;
+    const candidates = toolCapable.length > 0 ? toolCapable : pool;
+    const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
     const groups = new Map();
     for (const entry of ranked) {
         const score = Math.round(scoreModel(entry, task));

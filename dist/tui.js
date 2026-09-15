@@ -464,17 +464,43 @@ async function readSecret(prompt) {
     return new Promise((resolve) => {
         process.stdout.write(`\n${c.bold}${prompt}${c.reset}`);
         const previous = process.stdin.isRaw;
+        let value = "";
+        // Read the key in raw mode so terminals do not echo it into the TUI or
+        // into `script` recordings. Show a neutral bullet for each character.
         if (process.stdin.isTTY)
-            process.stdin.setRawMode(false);
+            process.stdin.setRawMode(true);
         const onData = (data) => {
-            process.stdin.removeListener("data", onData);
-            const value = data.toString().replace(/[\r\n]+$/, "").trim();
-            process.stdout.write("\n");
-            if (process.stdin.isTTY)
-                process.stdin.setRawMode(previous ?? false);
-            resolve(value || undefined);
+            for (const ch of data.toString()) {
+                if (ch === "\r" || ch === "\n") {
+                    process.stdin.removeListener("data", onData);
+                    process.stdout.write("\n");
+                    if (process.stdin.isTTY)
+                        process.stdin.setRawMode(previous ?? false);
+                    resolve(value.trim() || undefined);
+                    return;
+                }
+                if (ch === "\x03" || ch === "\x1b") {
+                    process.stdin.removeListener("data", onData);
+                    process.stdout.write("\n");
+                    if (process.stdin.isTTY)
+                        process.stdin.setRawMode(previous ?? false);
+                    resolve(undefined);
+                    return;
+                }
+                if (ch === "\x7f") {
+                    if (value.length > 0) {
+                        value = value.slice(0, -1);
+                        process.stdout.write("\b \b");
+                    }
+                    continue;
+                }
+                if (ch >= " ") {
+                    value += ch;
+                    process.stdout.write("•");
+                }
+            }
         };
-        process.stdin.once("data", onData);
+        process.stdin.on("data", onData);
         process.stdin.resume();
     });
 }

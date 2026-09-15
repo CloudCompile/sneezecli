@@ -187,6 +187,7 @@ interface TuiState {
 
 export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, initialCommand?: string): Promise<void> {
   const queue: string[] = [];
+  let commandBusy = false;
   const state: TuiState = {
     session: { id: newSessionId(), created: new Date().toISOString(), cwd, messages: [] },
     pool,
@@ -211,26 +212,38 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, ini
   rl.prompt();
 
   const processLine = async (input: string): Promise<void> => {
+    // Readline can emit buffered line events after a raw-mode picker closes.
+    // Do not allow those events to re-enter provider setup or confirmations.
+    if (commandBusy) return;
+    commandBusy = true;
     if (input.startsWith("/")) {
-      await handleCommand(state, input, rl);
-      if (!state.running) rl.prompt();
+      try {
+        await handleCommand(state, input, rl);
+        if (!state.running) rl.prompt();
+      } finally {
+        commandBusy = false;
+      }
       return;
     }
     // agent turn
     state.running = true;
     rl.pause();
-    await agentTurn(state, input, rl);
-    state.running = false;
-    rl.resume();
-    rl.prompt();
-    // drain anything typed while the turn was running
-    while (queue.length > 0) {
-      const next = queue.shift()!;
-      if (next === "/exit" || next === "/quit") {
-        rl.close();
-        return;
+    try {
+      await agentTurn(state, input, rl);
+      state.running = false;
+      rl.resume();
+      rl.prompt();
+      // drain anything typed while the turn was running
+      while (queue.length > 0) {
+        const next = queue.shift()!;
+        if (next === "/exit" || next === "/quit") {
+          rl.close();
+          return;
+        }
+        await processLine(next);
       }
-      await processLine(next);
+    } finally {
+      commandBusy = false;
     }
   };
 
@@ -238,6 +251,11 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, ini
     const input = line.trim();
     if (!input) {
       rl.prompt();
+      return;
+    }
+    if (commandBusy && !state.running) {
+      // A picker or secret prompt owns stdin while this is true. Ignore any
+      // line event emitted from input buffered before raw mode was enabled.
       return;
     }
     if (state.running) {
@@ -503,15 +521,40 @@ async function readSecret(prompt: string): Promise<string | undefined> {
   return new Promise((resolve) => {
     process.stdout.write(`\n${c.bold}${prompt}${c.reset}`);
     const previous = process.stdin.isRaw;
-    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    let value = "";
+    // Read the key in raw mode so terminals do not echo it into the TUI or
+    // into `script` recordings. Show a neutral bullet for each character.
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
     const onData = (data: Buffer) => {
-      process.stdin.removeListener("data", onData);
-      const value = data.toString().replace(/[\r\n]+$/, "").trim();
-      process.stdout.write("\n");
-      if (process.stdin.isTTY) process.stdin.setRawMode(previous ?? false);
-      resolve(value || undefined);
+      for (const ch of data.toString()) {
+        if (ch === "\r" || ch === "\n") {
+          process.stdin.removeListener("data", onData);
+          process.stdout.write("\n");
+          if (process.stdin.isTTY) process.stdin.setRawMode(previous ?? false);
+          resolve(value.trim() || undefined);
+          return;
+        }
+        if (ch === "\x03" || ch === "\x1b") {
+          process.stdin.removeListener("data", onData);
+          process.stdout.write("\n");
+          if (process.stdin.isTTY) process.stdin.setRawMode(previous ?? false);
+          resolve(undefined);
+          return;
+        }
+        if (ch === "\x7f") {
+          if (value.length > 0) {
+            value = value.slice(0, -1);
+            process.stdout.write("\b \b");
+          }
+          continue;
+        }
+        if (ch >= " ") {
+          value += ch;
+          process.stdout.write("•");
+        }
+      }
     };
-    process.stdin.once("data", onData);
+    process.stdin.on("data", onData);
     process.stdin.resume();
   });
 }

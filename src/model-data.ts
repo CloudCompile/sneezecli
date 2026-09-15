@@ -45,6 +45,7 @@ const FALLBACK_DATA: ModelMetadataFile = {
     provider: m.provider,
     model: m.model,
     context: m.ctx,
+    supportsTools: m.supportsTools,
     tags: m.tags,
     source: "built-in-catalog",
   })),
@@ -75,6 +76,7 @@ export function metadataFor(entry: Pick<ModelEntry, "provider" | "model">): Mode
     provider: entry.provider,
     model: entry.model,
     context: catalog?.ctx,
+    supportsTools: catalog?.supportsTools,
     tags: catalog?.tags,
     source: "built-in-catalog",
   };
