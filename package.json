@@ -1,10 +1,10 @@
 {
-  "name": "sneezecli",
+  "name": "sneezecode",
   "version": "0.1.0",
   "description": "BYOK agent harness routed over free LLM providers",
   "type": "module",
   "bin": {
-    "sneezecli": "./dist/index.js"
+    "sneeze": "./dist/index.js"
   },
   "files": [
     "dist",

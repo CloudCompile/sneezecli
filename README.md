@@ -1,6 +1,6 @@
-# sneezecli
+# sneeze
 
-An interactive coding-agent harness for your terminal. `sneezecli` uses your
+An interactive coding-agent harness for your terminal. `sneeze` uses your
 own API keys (BYOK) and routes OpenAI-compatible requests across a curated set
 of free providers. It can read, edit, search, and run commands in a repository
 using a single agent loop.
@@ -12,16 +12,16 @@ using a single agent loop.
 Install the command globally once:
 
 ```bash
-npm install --global sneezecli
+npm install --global sneezecode
 ```
 
 After that, start the application from any directory:
 
 ```bash
-sneezecli
+sneeze
 ```
 
-The package declares the `sneezecli` executable and ships its compiled CLI.
+The package declares the `sneeze` executable and ships its compiled CLI.
 Node.js 20 or newer is required. Git and source installs build automatically.
 
 ### From GitHub
@@ -30,7 +30,7 @@ To use the current repository version before it is published to npm:
 
 ```bash
 npm install --global https://github.com/sneezejayhauser/sneezecli.git
-sneezecli
+sneeze
 ```
 
 ### From a checkout
@@ -40,7 +40,7 @@ git clone https://github.com/sneezejayhauser/sneezecli.git
 cd sneezecli
 npm install
 npm link
-sneezecli
+sneeze
 ```
 
 `npm link` puts the local build on your `PATH`; `npm run build` can be used
@@ -62,16 +62,16 @@ after source changes.
 2. Add the complete compatible text-model catalog:
 
    ```bash
-   sneezecli add --auto
+   sneeze add --auto
    ```
 
-   Or add individual models with `sneezecli add <provider> <model> [priority]`.
-   Browse the built-in catalog with `sneezecli models`.
+   Or add individual models with `sneeze add <provider> <model> [priority]`.
+   Browse the built-in catalog with `sneeze models`.
 
 3. Start the interactive agent:
 
    ```bash
-   sneezecli
+   sneeze
    ```
 
 ### Public model metadata
@@ -79,7 +79,7 @@ after source changes.
 Routing can refresh its model metadata without additional API keys:
 
 ```bash
-sneezecli sync-models
+sneeze sync-models
 ```
 
 The sync combines OpenRouter's official `/api/v1/models` catalog with the
@@ -94,13 +94,13 @@ through other providers.
 Use the provider flow instead of adding models one by one:
 
 ```bash
-sneezecli --catalog
+sneeze --catalog
 ```
 
-Choose a provider, enter its API key when prompted, and sneezecli will add all
+Choose a provider, enter its API key when prompted, and sneeze will add all
 compatible text models for that provider to the local pool. The provider key
-and model pool are saved in `~/.config/sneezecli/config.json`, so they are
-available the next time you run `sneezecli`.
+and model pool are saved in `~/.config/sneeze/config.json`, so they are
+available the next time you run `sneeze`.
 
 Inside the TUI, `/catalog` or `/provider` opens the same flow. There is no
 visible model list in onboarding: selecting a provider configures it and adds
@@ -146,7 +146,7 @@ Run a sync after setting those variables:
 ```bash
 SNEEZE_ARTIFICIAL_ANALYSIS_URL=https://... \
 SNEEZE_LMARENA_URL=https://... \
-sneezecli sync-models
+sneeze sync-models
 ```
 
 The URLs are configurable because both services may expose different preview,
@@ -159,19 +159,19 @@ without changing the router interface.
 Useful commands:
 
 ```bash
-sneezecli setup                 # show key and pool setup help
-sneezecli providers             # list provider limits
-sneezecli models [provider]     # browse the model catalog
-sneezecli add --auto            # add all catalog text models
-sneezecli sync-models           # refresh optional benchmark metadata
-sneezecli pool                  # show the configured pool
-sneezecli status                # show rate and budget state
-sneezecli cost                  # show this process's usage
+sneeze setup                 # show key and pool setup help
+sneeze providers             # list provider limits
+sneeze models [provider]     # browse the model catalog
+sneeze add --auto            # add all catalog text models
+sneeze sync-models           # refresh optional benchmark metadata
+sneeze pool                  # show the configured pool
+sneeze status                # show rate and budget state
+sneeze cost                  # show this process's usage
 ```
 
 ## Interactive TUI
 
-Running `sneezecli` without arguments opens the streaming TUI. You can enter
+Running `sneeze` without arguments opens the streaming TUI. You can enter
 another request while a turn is running; it is queued for the next turn. Press
 Esc to abort a turn and terminate an in-flight shell command.
 
@@ -208,10 +208,10 @@ session unchanged if summarization fails.
 ## One-shot mode
 
 ```bash
-sneezecli run "refactor src/ to use async/await"
-sneezecli -p "find and explain the failing tests"
-sneezecli run "apply the migration" --yolo
-sneezecli run "continue the work" --resume <session-id>
+sneeze run "refactor src/ to use async/await"
+sneeze -p "find and explain the failing tests"
+sneeze run "apply the migration" --yolo
+sneeze run "continue the work" --resume <session-id>
 ```
 
 ## Configuration and sessions
@@ -219,15 +219,15 @@ sneezecli run "continue the work" --resume <session-id>
 Configuration and sessions are stored by default under:
 
 ```text
-~/.config/sneezecli/config.json
-~/.config/sneezecli/sessions/
+~/.config/sneeze/config.json
+~/.config/sneeze/sessions/
 ```
 
 Override these locations when testing or isolating profiles:
 
 ```bash
-SNEEZE_CONFIG_DIR=./.sneezecli sneezecli
-SNEEZE_CONFIG=./test-config.json sneezecli status
+SNEEZE_CONFIG_DIR=./.sneeze sneeze
+SNEEZE_CONFIG=./test-config.json sneeze status
 ```
 
 The configuration includes the model pool, maximum output tokens, context
@@ -250,7 +250,7 @@ keys:
 SNEEZE_CONFIG=./test-pool.json \
 SNEEZE_MOCK=1 \
 SNEEZE_MOCK_SCRIPT=./mock-script.json \
-sneezecli run "audit the loop"
+sneeze run "audit the loop"
 ```
 
 The mock script is a JSON list of tool calls followed by a final response. It

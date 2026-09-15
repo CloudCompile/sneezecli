@@ -14,7 +14,7 @@ export class HttpError extends Error {
 export const usageLog = new Map();
 const cooldownUntil = new Map();
 /** Rate state persisted to disk so one-shot `run` invocations share budgets. */
-const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/sneezecli/rate.json`;
+const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/sneeze/rate.json`;
 function loadRateStates() {
     try {
         if (existsSync(RATE_PATH)) {
@@ -191,8 +191,8 @@ export async function chat(entry, req, cb) {
     const headers = { "Content-Type": "application/json" };
     headers["Authorization"] = `Bearer ${key}`;
     if (entry.provider === "openrouter") {
-        headers["HTTP-Referer"] = "https://github.com/sneezecli";
-        headers["X-Title"] = "sneezecli";
+        headers["HTTP-Referer"] = "https://github.com/sneeze";
+        headers["X-Title"] = "sneeze";
     }
     let lastErr;
     for (let attempt = 0; attempt < 2; attempt++) {

@@ -40,6 +40,9 @@ function box(title, lines, width) {
     out.push(`${c.cyan}└${"─".repeat(inner + 2)}┘${c.reset}`);
     return out;
 }
+function rule(width = 72) {
+    return `${c.gray}${"─".repeat(width)}${c.reset}`;
+}
 function truncate(s, n) {
     return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
@@ -171,6 +174,7 @@ export async function startTui(pool, cfg, cwd, initialCommand) {
         prompt: `${c.green}❯${c.reset} `,
         terminal: true,
     });
+    rl.setPrompt(`${c.magenta}❯${c.reset} `);
     rl.prompt();
     const processLine = async (input) => {
         if (input.startsWith("/")) {
@@ -225,11 +229,10 @@ function banner(state) {
     const poolInfo = state.pool.length
         ? `${state.pool.length} models`
         : "empty pool — /provider to configure";
-    const lines = [
-        `${c.bold}${c.magenta}  ⚡ sneezecli${c.reset} ${c.gray}—${c.reset} ${poolInfo} ${c.gray}·${c.reset} session ${c.dim}${state.session.id}${c.reset}`,
-        `${c.gray}  /help for commands · esc aborts a running turn${c.reset}`,
-    ];
-    console.log(lines.join("\n") + "\n");
+    console.log(`\n${c.magenta}${c.bold}  ⚡ SNEEZE${c.reset} ${c.gray}·${c.reset} ${c.white}coding agent${c.reset}`);
+    console.log(`  ${c.gray}${poolInfo} · session ${c.dim}${state.session.id}${c.reset}`);
+    console.log(`  ${c.gray}/help commands ${c.gray}·${c.gray} esc abort ${c.gray}·${c.gray}/exit quit${c.reset}`);
+    console.log(`${rule()}\n`);
 }
 async function handleCommand(state, input, rl) {
     const [cmd, ...rest] = input.split(/\s+/);
@@ -408,7 +411,7 @@ async function handleCommand(state, input, rl) {
             const md = state.session.messages
                 .map((m) => `## ${m.role}\n\n${m.content}\n`)
                 .join("\n");
-            writeFileSync(file, `# sneezecli session ${state.session.name ?? state.session.id}\n\n${md}`);
+            writeFileSync(file, `# sneeze session ${state.session.name ?? state.session.id}\n\n${md}`);
             console.log(c.green(`exported to ${file}`) + c.reset);
             break;
         }
@@ -583,7 +586,7 @@ async function agentTurn(state, task, rl) {
     const events = {
         onModel: (p, m) => {
             state.lastModel = `${p}/${m}`;
-            process.stdout.write(c.gray(`\n[${p}/${m}]`) + c.reset + "\n");
+            process.stdout.write(c.gray(`\n  ◦ ${p}/${m}`) + c.reset + "\n");
         },
         onContent: (d) => process.stdout.write(d),
         onToolStart: (name, args) => process.stdout.write(c.cyan(`\n⚡ ${name} `) + c.gray + truncate(JSON.stringify(args), 90) + c.reset + "\n"),

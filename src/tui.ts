@@ -52,6 +52,10 @@ function box(title: string, lines: string[], width: number): string[] {
   return out;
 }
 
+function rule(width = 72): string {
+  return `${c.gray}${"─".repeat(width)}${c.reset}`;
+}
+
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
@@ -203,6 +207,7 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, ini
     prompt: `${c.green}❯${c.reset} `,
     terminal: true,
   });
+  rl.setPrompt(`${c.magenta}❯${c.reset} `);
   rl.prompt();
 
   const processLine = async (input: string): Promise<void> => {
@@ -260,11 +265,10 @@ function banner(state: TuiState): void {
   const poolInfo = state.pool.length
     ? `${state.pool.length} models`
     : "empty pool — /provider to configure";
-  const lines = [
-    `${c.bold}${c.magenta}  ⚡ sneezecli${c.reset} ${c.gray}—${c.reset} ${poolInfo} ${c.gray}·${c.reset} session ${c.dim}${state.session.id}${c.reset}`,
-    `${c.gray}  /help for commands · esc aborts a running turn${c.reset}`,
-  ];
-  console.log(lines.join("\n") + "\n");
+  console.log(`\n${c.magenta}${c.bold}  ⚡ SNEEZE${c.reset} ${c.gray}·${c.reset} ${c.white}coding agent${c.reset}`);
+  console.log(`  ${c.gray}${poolInfo} · session ${c.dim}${state.session.id}${c.reset}`);
+  console.log(`  ${c.gray}/help commands ${c.gray}·${c.gray} esc abort ${c.gray}·${c.gray}/exit quit${c.reset}`);
+  console.log(`${rule()}\n`);
 }
 
 async function handleCommand(state: TuiState, input: string, rl: readline.Interface): Promise<void> {
@@ -439,7 +443,7 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
       const md = state.session.messages
         .map((m) => `## ${m.role}\n\n${m.content}\n`)
         .join("\n");
-      writeFileSync(file, `# sneezecli session ${state.session.name ?? state.session.id}\n\n${md}`);
+      writeFileSync(file, `# sneeze session ${state.session.name ?? state.session.id}\n\n${md}`);
       console.log(c.green(`exported to ${file}`) + c.reset);
       break;
     }
@@ -635,7 +639,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
   const events: AgentEvents = {
     onModel: (p, m) => {
       state.lastModel = `${p}/${m}`;
-      process.stdout.write(c.gray(`\n[${p}/${m}]`) + c.reset + "\n");
+      process.stdout.write(c.gray(`\n  ◦ ${p}/${m}`) + c.reset + "\n");
     },
     onContent: (d) => process.stdout.write(d),
     onToolStart: (name, args) =>

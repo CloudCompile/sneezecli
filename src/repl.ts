@@ -94,7 +94,7 @@ export async function startRepl(pool: ModelEntry[], cfg: Config, cwd: string): P
     cwd,
   };
 
-  console.log(C.bold(`\nsneezecli`) + C.dim(` — ${pool.length} models in pool · cwd ${cwd}`));
+  console.log(C.bold(`\nsneeze`) + C.dim(` — ${pool.length} models in pool · cwd ${cwd}`));
   console.log(C.dim(`session ${state.session.id} · /help for commands\n`));
 
   const rl = readline.createInterface({

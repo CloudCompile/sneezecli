@@ -18,30 +18,30 @@ function arg(args: string[], name: string): string | undefined {
 }
 
 function usage(): never {
-  console.log(`sneezecli — BYOK agent harness over free LLM providers
+  console.log(`sneeze — BYOK agent harness over free LLM providers
 
 Usage:
-  sneezecli                                Interactive TUI (main mode)
-  sneezecli --catalog                      Interactive provider/model catalog
-  sneezecli run "<task>"                   One-shot agent task
-  sneezecli -p "<task>"                    Same as run
-  sneezecli run "<task>" --yolo            Auto-approve dangerous tools
-  sneezecli run "<task>" --resume <id>     Continue a saved session
+  sneeze                                Interactive TUI (main mode)
+  sneeze --catalog                      Interactive provider/model catalog
+  sneeze run "<task>"                   One-shot agent task
+  sneeze -p "<task>"                    Same as run
+  sneeze run "<task>" --yolo            Auto-approve dangerous tools
+  sneeze run "<task>" --resume <id>     Continue a saved session
 
 Pool management:
-  sneezecli add <provider> <model> [priority] [--rpm N]  (advanced)
-  sneezecli add --auto                    Add all catalog models (advanced)
-  sneezecli models [provider]             Browse catalog (advanced)
-  sneezecli remove <index>
-  sneezecli pool                           Show model pool
-  sneezecli status                         Rate-limit / budget state
-  sneezecli cost                           Session token/request usage
-  sneezecli sync-models                    Refresh optional model metadata
+  sneeze add <provider> <model> [priority] [--rpm N]  (advanced)
+  sneeze add --auto                    Add all catalog models (advanced)
+  sneeze models [provider]             Browse catalog (advanced)
+  sneeze remove <index>
+  sneeze pool                           Show model pool
+  sneeze status                         Rate-limit / budget state
+  sneeze cost                           Session token/request usage
+  sneeze sync-models                    Refresh optional model metadata
 
 Other:
-  sneezecli setup                          Show provider + key setup
-  sneezecli providers                      List built-in providers
-  sneezecli --help
+  sneeze setup                          Show provider + key setup
+  sneeze providers                      List built-in providers
+  sneeze --help
 
 Providers: ${visibleProviders().map((p) => p.id).join(", ")}
 
@@ -52,7 +52,7 @@ Config: ${configPath()}`);
 function cmdStatus(): void {
   const cfg = loadConfig();
   if (cfg.models.length === 0) {
-    console.log("Pool is empty. Run `sneezecli setup` or `sneezecli add`.");
+    console.log("Pool is empty. Run `sneeze setup` or `sneeze add`.");
     return;
   }
   console.log("Model pool (task score descending = best first):\n");
@@ -104,7 +104,7 @@ function cmdModels(provider?: string, tag?: string): void {
       console.log(`  ${m.model.padEnd(55)}${rpm.padEnd(10)}${ctx} ${C.dim(tags)}`);
     }
   }
-  console.log(`\nadd with: sneezecli add <provider> <model> [priority]  |  or: sneezecli add --auto`);
+  console.log(`\nadd with: sneeze add <provider> <model> [priority]  |  or: sneeze add --auto`);
 }
 
 function cmdAddAuto(): void {
@@ -183,17 +183,17 @@ function cmdProviders(): void {
 }
 
 function cmdSetup(): void {
-  console.log("sneezecli setup\n");
+  console.log("sneeze setup\n");
   console.log("1. Export your API keys:\n");
   for (const def of visibleProviders()) {
     console.log(`   export ${def.keyEnv}=...   # ${def.name} — ${def.notes}`);
   }
   console.log(`\n2. Add the catalog and let task-aware routing rank models:\n`);
-  console.log(`   sneezecli add --auto`);
+  console.log(`   sneeze add --auto`);
   console.log(`\n3. Check and run:\n`);
-  console.log(`   sneezecli status`);
-  console.log(`   sneezecli            # interactive REPL`);
-  console.log(`   sneezecli run "task"`);
+  console.log(`   sneeze status`);
+  console.log(`   sneeze            # interactive REPL`);
+  console.log(`   sneeze run "task"`);
   console.log(`\nConfig: ${configPath()}`);
 }
 
@@ -208,7 +208,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
     console.error(`Models without keys will be skipped.\n`);
   }
   const cwd = process.cwd();
-  console.log(`sneezecli — task: ${task}\ncwd: ${cwd}\n`);
+  console.log(`sneeze — task: ${task}\ncwd: ${cwd}\n`);
   const history = resumeId ? (loadSession(resumeId)?.messages ?? []) : [];
   if (resumeId && history.length === 0) {
     console.error(`Session ${resumeId} not found or empty — starting fresh.`);
@@ -302,13 +302,13 @@ function cDim(s: string): string {
       const tier = args[3];
       const rpm = arg(args, "--rpm");
       if (!provider || !model) {
-        console.error("Usage: sneezecli add <provider> <model> [tier] [--rpm N]");
+        console.error("Usage: sneeze add <provider> <model> [tier] [--rpm N]");
         process.exit(1);
       }
       const cat = findCatalogModel(provider, model);
       if (!cat) {
         console.error(`"${model}" is not in the ${provider} catalog.`);
-        console.error(`Browse: sneezecli models ${provider}`);
+        console.error(`Browse: sneeze models ${provider}`);
         process.exit(1);
       }
       cmdAdd(provider, model, tier, rpm);
@@ -316,7 +316,7 @@ function cDim(s: string): string {
     }
     case "remove":
       if (!args[1]) {
-        console.error("Usage: sneezecli remove <index>");
+        console.error("Usage: sneeze remove <index>");
         process.exit(1);
       }
       cmdRemove(args[1]);
@@ -332,11 +332,11 @@ function cDim(s: string): string {
       const cfg = loadConfig();
       const { task, resumeId } = applyRunFlags(args, cfg);
       if (!task) {
-        console.error(`Usage: sneezecli run "<task>" [--yolo] [--resume <id>]`);
+        console.error(`Usage: sneeze run "<task>" [--yolo] [--resume <id>]`);
         process.exit(1);
       }
       if (cfg.models.length === 0) {
-        console.error("Pool is empty. Add models first: sneezecli add --auto");
+        console.error("Pool is empty. Add models first: sneeze add --auto");
         process.exit(1);
       }
       await cmdRun(task, cfg, resumeId);

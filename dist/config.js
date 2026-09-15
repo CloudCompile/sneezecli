@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 function configDir() {
-    return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/sneezecli`;
+    return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/sneeze`;
 }
 function sessionsDirPath() {
     return `${configDir()}/sessions`;
@@ -33,7 +33,7 @@ export function defaultConfig() {
         maxTokens: 4096,
         maxContextMessages: 40,
         yolo: false,
-        systemPrompt: "You are sneezecli, a capable coding agent working in the user's repository. " +
+        systemPrompt: "You are sneeze, a capable coding agent working in the user's repository. " +
             "Use the provided tools to read, explore, edit, and run code. " +
             "Prefer precise edit_file operations over rewriting whole files. " +
             "When done, summarize what you changed.",
