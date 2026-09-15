@@ -4,13 +4,26 @@
   "description": "BYOK agent harness routed over free LLM providers",
   "type": "module",
   "bin": {
-    "sneezecli": "dist/index.js"
+    "sneezecli": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "data"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sneezejayhauser/sneezecli.git"
+  },
+  "homepage": "https://github.com/sneezejayhauser/sneezecli",
+  "license": "MIT",
   "engines": {
     "node": ">=20"
   },

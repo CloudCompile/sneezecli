@@ -143,7 +143,7 @@ export async function startRepl(pool: ModelEntry[], cfg: Config, cwd: string): P
           break;
         case "/pool":
           state.pool.forEach((m) =>
-            console.log(`  tier ${m.tier}  ${m.provider}/${m.model}${m.rpm ? ` (${m.rpm} rpm)` : ""}`)
+            console.log(`  ${m.provider}/${m.model}${m.priority !== undefined ? ` (priority ${m.priority})` : ""}${m.rpm ? ` (${m.rpm} rpm)` : ""}`)
           );
           break;
         case "/cwd":

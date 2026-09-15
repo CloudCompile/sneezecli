@@ -1,164 +1,233 @@
 # sneezecli
 
-BYOK agent harness routed over **free** LLM providers. No subscriptions.
+An interactive coding-agent harness for your terminal. `sneezecli` uses your
+own API keys (BYOK) and routes OpenAI-compatible requests across a curated set
+of free providers. It can read, edit, search, and run commands in a repository
+using a single agent loop.
 
-## How it works
+## Installation
 
-One agent loop, one tool set, one router. The router walks a **closed, curated
-list of free providers** — best-capable tier first, falling to lower tiers when
-a provider is rate-limited or out of budget.
+### From npm
 
-```
-Tier 1  OpenRouter best free model     (50 rpd — spend on hard tasks)
-Tier 2  InceptionLabs                  (100M one-time token budget)
-Tier 3  Pollinations round-robin       (unlimited, rpm-throttled per model)
-Tier 4  TokenReply / no-auth fallback  (always-on last resort)
-```
-
-**No model names are assumed.** You add every model id yourself.
-
-## Providers (closed list — more coming)
-
-| id | notes |
-|---|---|
-| `openrouter` | best quality, 50 rpd hard cap |
-| `pollinations` | unlimited requests, rpm-throttled per model |
-| `poolside` | free tier, dynamic undocumented limits |
-| `inceptionlabs` | 1000 rpm, 100M one-time token budget |
-| `tokenrouter` | free models, no known limit, may vanish |
-| `tokenreply` | many free models, 3 rpm, unstable |
-
-Providers are **not user-extensible** — the list is maintained in
-`src/providers.ts`. Model ids within each provider are user-supplied.
-
-## Setup
+Install the command globally once:
 
 ```bash
-npm install && npm run build
-npm link   # optional, puts `sneezecli` on PATH
+npm install --global sneezecli
 ```
 
-Export keys:
-
-```bash
-export OPENROUTER_API_KEY=...
-export POLLINATIONS_API_KEY=...
-export INCEPTIONLABS_API_KEY=...
-```
-
-Add models (you pick the ids and tiers):
-
-```bash
-sneezecli add openrouter <model-id> 1
-sneezecli add inceptionlabs <model-id> 2
-sneezecli add pollinations <model-id> 3 --rpm 8
-sneezecli add tokenreply <model-id> 4 --rpm 3
-```
-
-## Use
-
-### Interactive TUI (main mode)
+After that, start the application from any directory:
 
 ```bash
 sneezecli
 ```
 
-Full-screen TUI with streaming responses, live tool-call display, session
-management, and input queuing (type while the agent works — it drains after
-the turn). Esc aborts a running turn and kills in-flight bash commands.
+The package declares the `sneezecli` executable and ships its compiled CLI.
+Node.js 20 or newer is required. Git and source installs build automatically.
 
-Slash commands:
+### From GitHub
 
-```
-/help       /new         /resume [id]   /sessions
-/rename <n> /delete-session             /model
-/catalog    /pool        /providers     /usage
-/context    /compact     /subtask <t>   /tasks
-/cwd <dir>  /yolo        /export [f]    /exit
-```
-
-- `/model` — picker over the full catalog; picked model becomes primary (tier 1)
-- `/compact` — summarize older messages to free context
-- `/subtask <task>` — spawn a background subagent with its own conversation;
-	result posts back when done. The agent itself can spawn subtasks via the
-	`subtask` tool.
-- `/tasks` — list background subagents and their status
-- `/context` — context window usage bar
-- `/export [file]` — save transcript as markdown
-
-Dangerous tools (`bash`, `write_file`, `edit_file`, `patch_file`, `delete_file`,
-`bash_bg`) prompt for approval in safe mode. `/yolo` or answering `a`ll
-disables prompting for the session.
-
-### One-shot
+To use the current repository version before it is published to npm:
 
 ```bash
-sneezecli pool      # list configured models
-sneezecli status    # rate-limit / budget state per model
+npm install --global https://github.com/sneezejayhauser/sneezecli.git
+sneezecli
+```
+
+### From a checkout
+
+```bash
+git clone https://github.com/sneezejayhauser/sneezecli.git
+cd sneezecli
+npm install
+npm link
+sneezecli
+```
+
+`npm link` puts the local build on your `PATH`; `npm run build` can be used
+after source changes.
+
+## Quick start
+
+1. Configure at least one provider key. For example:
+
+   ```bash
+   export OPENROUTER_API_KEY=...
+   export INCEPTIONLABS_API_KEY=...
+   export TOKENREPLY_API_KEY=...
+   export REQUESTY_API_KEY=...
+   export LOGFARE_API_KEY=...
+   export POLLINATIONS_API_KEY=...
+   ```
+
+2. Add the complete compatible text-model catalog:
+
+   ```bash
+   sneezecli add --auto
+   ```
+
+   Or add individual models with `sneezecli add <provider> <model> [priority]`.
+   Browse the built-in catalog with `sneezecli models`.
+
+3. Start the interactive agent:
+
+   ```bash
+   sneezecli
+   ```
+
+`pollinations-noauth` is available as a keyless last-resort provider. It does
+not support tools or streaming, so configuring a keyed provider is recommended
+for coding tasks.
+
+## Providers and routing
+
+The provider registry is deliberately closed and maintained by the project.
+Current providers are:
+
+| Provider | Notes |
+| --- | --- |
+| `openrouter` | Quality models; account-wide daily and RPM limits |
+| `inceptionlabs` | Shared token budget and high RPM limit |
+| `tokenreply` | Account-wide 3 RPM limit |
+| `requesty` | Account-wide daily limit |
+| `logfare` | Account-wide RPM limit |
+| `pollinations` | Keyed, per-model limits |
+| `pollinations-noauth` | No key; tools and streaming unavailable |
+
+Routing is model-first rather than provider-tier-first. Each request is ranked
+using the model's capability, coding, arena-preference, speed, latency, and
+semantic tags. The router then checks that individual model's availability and
+its applicable limit bucket before trying it. Rate-limited or exhausted models
+fall through to the next ranked model. A per-ranked-group cursor spreads load
+across equivalent models, while rate state persists across processes.
+
+The repository can contain a reviewable snapshot at
+`data/model-metadata.json`. The built-in catalog remains the safe fallback when
+benchmark data is unavailable. Metadata is intentionally optional: routing
+continues using catalog tags and neutral default scores.
+
+### Model metadata sources
+
+The metadata sync layer accepts normalized JSON from the two initial sources:
+
+- Artificial Analysis, configured with `SNEEZE_ARTIFICIAL_ANALYSIS_URL` and
+   `ARTIFICIAL_ANALYSIS_API_KEY`.
+- LMArena/Chatbot Arena, configured with `SNEEZE_LMARENA_URL`.
+
+Run a sync after setting those variables:
+
+```bash
+SNEEZE_ARTIFICIAL_ANALYSIS_URL=https://... \
+SNEEZE_LMARENA_URL=https://... \
+sneezecli sync-models
+```
+
+The URLs are configurable because both services may expose different preview,
+dataset, or proxy endpoints over time. The command merges fetched rows with
+the built-in catalog and writes the snapshot to `data/model-metadata.json`
+(override the path with `SNEEZE_METADATA`). Do not commit API keys or private
+raw responses. A future adapter can add `llm-bench-data` performance rows
+without changing the router interface.
+
+Useful commands:
+
+```bash
+sneezecli setup                 # show key and pool setup help
+sneezecli providers             # list provider limits
+sneezecli models [provider]     # browse the model catalog
+sneezecli add --auto            # add all catalog text models
+sneezecli sync-models           # refresh optional benchmark metadata
+sneezecli pool                  # show the configured pool
+sneezecli status                # show rate and budget state
+sneezecli cost                  # show this process's usage
+```
+
+## Interactive TUI
+
+Running `sneezecli` without arguments opens the streaming TUI. You can enter
+another request while a turn is running; it is queued for the next turn. Press
+Esc to abort a turn and terminate an in-flight shell command.
+
+Available slash commands:
+
+```text
+/help                 Show commands
+/new                  Start a new session
+/resume [id]          Resume a saved session
+/sessions             List saved sessions
+/rename <name>        Rename the current session
+/delete-session       Delete a saved session
+/model                Pick a model from the catalog
+/catalog              Browse the model catalog
+/pool                 Show the configured model pool
+/providers            List providers
+/usage                Show session usage
+/context              Show context-window usage
+/compact              Summarize older history
+/subtask <task>       Start a background subagent
+/tasks                Show background subagents
+/cwd <directory>      Change the working directory
+/yolo                 Toggle automatic approval of dangerous tools
+/clear-screen         Clear the terminal
+/export [file]        Export the transcript as Markdown
+/exit                 Save and exit
+```
+
+Dangerous tools such as `bash`, file writes, patches, and deletion ask for
+approval unless `/yolo` is enabled. `/compact` uses the selected LLM to
+summarize older history, keeps the last four messages verbatim, and leaves the
+session unchanged if summarization fails.
+
+## One-shot mode
+
+```bash
 sneezecli run "refactor src/ to use async/await"
-sneezecli run "task" --yolo          # auto-approve dangerous tools
-sneezecli run "task" --resume <id>   # continue a saved session
-sneezecli cost                       # session token/request usage
+sneezecli -p "find and explain the failing tests"
+sneezecli run "apply the migration" --yolo
+sneezecli run "continue the work" --resume <session-id>
 ```
 
-## Tools
+## Configuration and sessions
 
-| tool | dangerous | notes |
-|---|---|---|
-| `read_file` | | line ranges, numbered output |
-| `write_file` | ✓ | creates dirs, overwrites |
-| `edit_file` | ✓ | exact unique substring replace |
-| `patch_file` | ✓ | multiple edits in one call |
-| `list_dir` | | |
-| `glob` | | `src/**/*.ts` style |
-| `grep` | | regex, file:line output |
-| `bash` | ✓ | 60s timeout |
-| `bash_bg` | ✓ | detached dev servers / watchers |
-| `delete_file` | ✓ | |
-| `file_info` | | size / lines / ext |
+Configuration and sessions are stored by default under:
 
-## Router features
-
-- **Capability-first**: lowest tier number available wins.
-- **Round-robin within tier**: consecutive calls rotate across same-tier models,
-	spreading load (critical for OpenRouter's 50 RPD account cap and for
-	multiplying Pollinations' per-model RPM). Cursor persists across processes.
-- **Budget tracking**: rpm, rpd, and one-time token budgets tracked per model.
-	Rate state persists across processes, so one-shot `run` invocations share
-	the same budgets as the REPL.
-- **Provider-scoped limits**: limits marked `scope: "provider"` (OpenRouter 50
-	rpd, TokenReply 3 rpm, InceptionLabs 100M tokens) are metered across ALL
-	models on that provider, not per model.
-- **429 cooldown**: a rate-limited model sits out the rest of the minute.
-- **Retry**: one automatic retry on 429/5xx/network errors before falling through.
-- **Context trimming**: keeps system prompt + recent messages when over budget.
-- **Streaming**: SSE streaming with live token output and tool-call accumulation.
-
-## Config
-
-`~/.config/sneezecli/config.json`:
-
-```json
-{
-	"models": [{"provider": "pollinations", "model": "<id>", "tier": 3, "rpm": 8}],
-	"maxTokens": 4096,
-	"maxContextMessages": 40,
-	"yolo": false,
-	"systemPrompt": "..."
-}
+```text
+~/.config/sneezecli/config.json
+~/.config/sneezecli/sessions/
 ```
 
-Sessions persist in `~/.config/sneezecli/sessions/`.
-
-## Dev dogfooding
-
-The harness can run on itself without API keys via a hidden mock provider:
+Override these locations when testing or isolating profiles:
 
 ```bash
-SNEEZE_CONFIG=./test-pool.json SNEEZE_MOCK=1 \
-SNEEZE_MOCK_SCRIPT=./mock-script.json sneezecli run "audit the loop"
+SNEEZE_CONFIG_DIR=./.sneezecli sneezecli
+SNEEZE_CONFIG=./test-config.json sneezecli status
 ```
 
-`SNEEZE_CONFIG` overrides the config path. The mock script is a JSON list of
-`{tool, args}` calls followed by a `final` string — the agent executes the real
-tools against your repo, so you can watch the full loop work without keys.
+The configuration includes the model pool, maximum output tokens, context
+limits, system prompt, iteration limit, and the default approval mode.
+
+## Development and mock mode
+
+Build and run the local CLI:
+
+```bash
+npm install
+npm run build
+node dist/index.js --help
+```
+
+The hidden mock provider can exercise the real agent and tools without API
+keys:
+
+```bash
+SNEEZE_CONFIG=./test-pool.json \
+SNEEZE_MOCK=1 \
+SNEEZE_MOCK_SCRIPT=./mock-script.json \
+sneezecli run "audit the loop"
+```
+
+The mock script is a JSON list of tool calls followed by a final response. It
+executes the real tools against the current repository.
+
+## License
+
+MIT

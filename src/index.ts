@@ -1,5 +1,8 @@
+#!/usr/bin/env node
+
 import { PROVIDERS, visibleProviders, type ProviderId } from "./providers.js";
 import { CATALOG, catalogFor, findCatalogModel, type CatalogModel } from "./catalog.js";
+import { metadataFor, scoreModel, syncMetadata, metadataPath } from "./model-data.js";
 import { loadConfig, saveConfig, configPath, loadSession, type Config, type ModelEntry } from "./config.js";
 import { runAgent } from "./agent.js";
 import { usageLog, checkBudget } from "./llm.js";
@@ -25,13 +28,14 @@ Usage:
   sneezecli run "<task>" --resume <id>     Continue a saved session
 
 Pool management:
-  sneezecli add <provider> <model> [tier] [--rpm N]
-  sneezecli add --auto                    Add all catalog models at suggested tiers
+  sneezecli add <provider> <model> [priority] [--rpm N]
+  sneezecli add --auto                    Add all catalog models
   sneezecli models [provider]             Browse the built-in model catalog
   sneezecli remove <index>
   sneezecli pool                           Show model pool
   sneezecli status                         Rate-limit / budget state
   sneezecli cost                           Session token/request usage
+  sneezecli sync-models                    Refresh optional model metadata
 
 Other:
   sneezecli setup                          Show provider + key setup
@@ -50,8 +54,8 @@ function cmdStatus(): void {
     console.log("Pool is empty. Run `sneezecli setup` or `sneezecli add`.");
     return;
   }
-  console.log("Model pool (tier ascending = best first):\n");
-  const sorted = [...cfg.models].sort((a, b) => a.tier - b.tier);
+  console.log("Model pool (task score descending = best first):\n");
+  const sorted = [...cfg.models].sort((a, b) => scoreModel(b, "") - scoreModel(a, ""));
   sorted.forEach((m, i) => {
     const def = PROVIDERS[m.provider];
     const b = checkBudget(m);
@@ -66,7 +70,7 @@ function cmdStatus(): void {
       .filter(Boolean)
       .join(", ");
     console.log(
-      `  [${i}] tier ${m.tier}  ${def.name.padEnd(15)} ${m.model.padEnd(30)} ${lim}  ${b.ok ? "✓" : "✗ " + b.reason}`
+      `  [${i}] score ${String(Math.round(scoreModel(m, ""))).padStart(3)}  ${def.name.padEnd(15)} ${m.model.padEnd(30)} ${lim}  ${b.ok ? "✓" : "✗ " + b.reason}`
     );
   });
   if (usageLog.size > 0) {
@@ -99,27 +103,26 @@ function cmdModels(provider?: string, tag?: string): void {
       console.log(`  ${m.model.padEnd(55)}${rpm.padEnd(10)}${ctx} ${C.dim(tags)}`);
     }
   }
-  console.log(`\nadd with: sneezecli add <provider> <model> [tier]  |  or: sneezecli add --auto`);
+  console.log(`\nadd with: sneezecli add <provider> <model> [priority]  |  or: sneezecli add --auto`);
 }
 
 function cmdAddAuto(): void {
   const cfg = loadConfig();
   let added = 0;
   for (const m of CATALOG) {
-    if (m.tier === undefined) continue;
     // skip non-text models (asr/tts/image/embed) — the agent can't use them
     if (m.tags?.some((t) => ["asr", "tts", "image", "embed"].includes(t))) continue;
     if (cfg.models.some((e) => e.provider === m.provider && e.model === m.model)) continue;
-    const entry: ModelEntry = { provider: m.provider as ProviderId, model: m.model, tier: m.tier };
+    const entry: ModelEntry = { provider: m.provider as ProviderId, model: m.model };
     if (m.rpm !== undefined) entry.rpm = m.rpm;
     cfg.models.push(entry);
     added++;
   }
   saveConfig(cfg);
-  console.log(`Added ${added} models from catalog at suggested tiers.`);
+  console.log(`Added ${added} models from catalog.`);
 }
 
-function cmdAdd(provider: string, model: string, tierStr?: string, rpmStr?: string): void {
+function cmdAdd(provider: string, model: string, priorityStr?: string, rpmStr?: string): void {
   if (!(provider in PROVIDERS)) {
     console.error(`Unknown provider "${provider}". Providers are a closed list:`);
     console.error(`  ${visibleProviders().map((p) => p.id).join(", ")}`);
@@ -129,12 +132,12 @@ function cmdAdd(provider: string, model: string, tierStr?: string, rpmStr?: stri
   const entry: ModelEntry = {
     provider: provider as ProviderId,
     model,
-    tier: tierStr ? parseInt(tierStr, 10) : 2,
+    priority: priorityStr ? parseInt(priorityStr, 10) : undefined,
   };
   if (rpmStr) entry.rpm = parseInt(rpmStr, 10);
   cfg.models.push(entry);
   saveConfig(cfg);
-  console.log(`Added ${provider}/${model} at tier ${entry.tier}${entry.rpm ? ` (${entry.rpm} rpm)` : ""}`);
+  console.log(`Added ${provider}/${model}${entry.priority !== undefined ? ` at priority ${entry.priority}` : ""}${entry.rpm ? ` (${entry.rpm} rpm)` : ""}`);
 }
 
 function cmdRemove(idxStr: string): void {
@@ -156,7 +159,7 @@ function cmdPool(): void {
     return;
   }
   cfg.models.forEach((m, i) => {
-    console.log(`  [${i}] tier ${m.tier}  ${m.provider}/${m.model}${m.rpm ? ` (${m.rpm} rpm)` : ""}`);
+    console.log(`  [${i}] ${m.provider}/${m.model}${m.priority !== undefined ? ` (priority ${m.priority})` : ""}${m.rpm ? ` (${m.rpm} rpm)` : ""}`);
   });
 }
 
@@ -184,11 +187,8 @@ function cmdSetup(): void {
   for (const def of visibleProviders()) {
     console.log(`   export ${def.keyEnv}=...   # ${def.name} — ${def.notes}`);
   }
-  console.log(`\n2. Add models to the pool (model ids are yours to supply):\n`);
-  console.log(`   sneezecli add openrouter <model-id> 1`);
-  console.log(`   sneezecli add inceptionlabs <model-id> 2`);
-  console.log(`   sneezecli add pollinations <model-id> 3 --rpm 8`);
-  console.log(`   sneezecli add tokenreply <model-id> 4 --rpm 3`);
+  console.log(`\n2. Add the catalog and let task-aware routing rank models:\n`);
+  console.log(`   sneezecli add --auto`);
   console.log(`\n3. Check and run:\n`);
   console.log(`   sneezecli status`);
   console.log(`   sneezecli            # interactive REPL`);
@@ -278,6 +278,10 @@ function cDim(s: string): string {
     case "providers":
       cmdProviders();
       break;
+    case "sync-models":
+      await syncMetadata();
+      console.log(`Model metadata written to ${metadataPath()}`);
+      break;
     case "models":
       cmdModels(args[1] === "--tag" ? undefined : args[1], arg(args, "--tag"));
       break;
@@ -325,7 +329,7 @@ function cDim(s: string): string {
         process.exit(1);
       }
       if (cfg.models.length === 0) {
-        console.error("Pool is empty. Add models first: sneezecli add <provider> <model> <tier>");
+        console.error("Pool is empty. Add models first: sneezecli add --auto");
         process.exit(1);
       }
       await cmdRun(task, cfg, resumeId);

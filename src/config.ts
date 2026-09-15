@@ -7,8 +7,8 @@ export interface ModelEntry {
   provider: ProviderId;
   /** exact model id string as the provider API expects — user supplies this */
   model: string;
-  /** capability tier: 1 = best, higher = lower. Router picks lowest tier available. */
-  tier: number;
+  /** optional manual priority; lower values are preferred before scored models */
+  priority?: number;
   /** per-model rpm override (e.g. Pollinations per-model limits) */
   rpm?: number;
   label?: string;

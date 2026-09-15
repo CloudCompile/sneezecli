@@ -55,7 +55,8 @@ export async function runAgent(
     const resp = await route(
       { messages, tools, maxTokens: cfg.maxTokens },
       pool,
-      { onContent: events.onContent }
+      { onContent: events.onContent },
+      userTask
     );
     events.onModel?.(resp.entry.provider, resp.entry.model);
 

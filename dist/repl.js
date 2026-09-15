@@ -118,7 +118,7 @@ export async function startRepl(pool, cfg, cwd) {
                     listSessions().slice(0, 20).forEach((s) => console.log(`  ${s.id}  ${s.messages.length} msgs`));
                     break;
                 case "/pool":
-                    state.pool.forEach((m) => console.log(`  tier ${m.tier}  ${m.provider}/${m.model}${m.rpm ? ` (${m.rpm} rpm)` : ""}`));
+                    state.pool.forEach((m) => console.log(`  ${m.provider}/${m.model}${m.priority !== undefined ? ` (priority ${m.priority})` : ""}${m.rpm ? ` (${m.rpm} rpm)` : ""}`));
                     break;
                 case "/cwd":
                     if (rest[0]) {

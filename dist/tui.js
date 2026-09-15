@@ -288,7 +288,7 @@ async function handleCommand(state, input, rl) {
             const picked = await pickModel(state);
             if (picked) {
                 state.pool = [picked, ...state.pool.filter((m) => !(m.provider === picked.provider && m.model === picked.model))];
-                console.log(c.green(`✓ primary model: ${c.bold}${picked.provider}/${picked.model}${c.reset}${c.green} (tier ${picked.tier})`) + c.reset);
+                console.log(c.green(`✓ primary model: ${c.bold}${picked.provider}/${picked.model}${c.reset}`) + c.reset);
             }
             break;
         }
@@ -298,7 +298,7 @@ async function handleCommand(state, input, rl) {
             state.pool.forEach((m, i) => {
                 const def = PROVIDERS[m.provider];
                 const b = checkBudget(m);
-                console.log(`  ${i === 0 ? c.green + "★" : c.gray + " "} [${i}]${c.reset} tier ${m.tier}  ${c.cyan}${m.provider}/${m.model}${c.reset} ${c.gray}${m.rpm ? m.rpm + "rpm" : ""}${b.ok ? "" : " " + c.red + b.reason + c.reset}`);
+                console.log(`  ${i === 0 ? c.green + "★" : c.gray + " "} [${i}]${c.reset} ${c.cyan}${m.provider}/${m.model}${c.reset} ${c.gray}${m.priority !== undefined ? `priority ${m.priority} ` : ""}${m.rpm ? m.rpm + "rpm" : ""}${b.ok ? "" : " " + c.red + b.reason + c.reset}`);
             });
             break;
         case "/providers":
@@ -320,11 +320,10 @@ async function handleCommand(state, input, rl) {
                 const entry = {
                     provider: picked.provider,
                     model: picked.model,
-                    tier: picked.tier ?? 3,
                     rpm: picked.rpm,
                 };
                 state.pool.push(entry);
-                console.log(c.green(`✓ added ${picked.provider}/${picked.model} at tier ${entry.tier}`) + c.reset);
+                console.log(c.green(`✓ added ${picked.provider}/${picked.model}`) + c.reset);
             }
             break;
         }
@@ -447,7 +446,6 @@ async function pickModel(state) {
     return {
         provider: picked.provider,
         model: picked.model,
-        tier: picked.tier ?? 3,
         rpm: picked.rpm,
     };
 }
@@ -485,7 +483,7 @@ async function compactSession(state) {
                 },
             ],
             maxTokens: 1024,
-        }, state.pool);
+        }, state.pool, undefined, "compact conversation history");
         state.session.messages = [
             { role: "user", content: `[earlier conversation summary]\n${resp.content.trim()}\n\n[continue from here]` },
             ...keep,

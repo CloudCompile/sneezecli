@@ -3,7 +3,7 @@
 // the pool config references these by provider + model id.
 //
 // rpm: per-model RPM limit (undefined = no documented limit)
-// tags: capability hints used by `sneezecli models` filtering
+// tags: capability hints used by `sneezecli models` filtering and routing
 // ctx: context window in tokens (informational)
 
 export interface CatalogModel {
@@ -12,7 +12,7 @@ export interface CatalogModel {
   rpm?: number;
   ctx?: number;
   tags?: string[];
-  /** suggested default tier for `sneezecli add --auto` */
+  /** legacy source annotation; not used for routing */
   tier?: number;
 }
 

@@ -2,16 +2,17 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat } from "./llm.js";
+import { scoreModel } from "./model-data.js";
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
-/** Per-tier round-robin cursor: next call starts where the last one left off.
+/** Per-ranked-group round-robin cursor: next call starts where the last one left off.
  *  Persisted to disk so separate one-shot `run` invocations keep rotating. */
 const CURSOR_PATH = process.env.SNEEZE_CURSOR ?? `${homedir()}/.config/sneezecli/cursor.json`;
 function loadCursor() {
     try {
         if (existsSync(CURSOR_PATH)) {
-            return new Map(Object.entries(JSON.parse(readFileSync(CURSOR_PATH, "utf8"))).map(([k, v]) => [Number(k), v]));
+            return new Map(Object.entries(JSON.parse(readFileSync(CURSOR_PATH, "utf8"))).map(([k, v]) => [k, v]));
         }
     }
     catch {
@@ -28,22 +29,28 @@ function saveCursor(c) {
         // cursor persistence is best-effort
     }
 }
-const tierCursor = loadCursor();
+const modelCursor = loadCursor();
 /**
- * Walk the model pool by tier (ascending = best first), then pool order.
- * Within a tier, round-robin: consecutive calls start at the next model,
- * spreading load across same-tier models (critical for OpenRouter's 50 RPD
- * account cap and for multiplying Pollinations' per-model RPM).
+ * Rank the model pool for the current task using checked-in/live metadata.
+ * Availability and provider/model limits are evaluated at call time, so an
+ * exhausted high-scoring model falls through safely.
  * Skip rate-limited / budget-exhausted models. On a 429, wait for the
  * cooldown to expire and retry the same model (up to 2 waits) before
  * falling to the next tier — preserving capability-first ordering.
  */
-export async function route(req, pool, cb) {
+export async function route(req, pool, cb, task = "") {
     const attempts = [];
-    const tiers = [...new Set(pool.map((m) => m.tier))].sort((a, b) => a - b);
-    for (const tier of tiers) {
-        const group = pool.filter((m) => m.tier === tier);
-        const start = group.length > 0 ? (tierCursor.get(tier) ?? 0) % group.length : 0;
+    const ranked = [...pool].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+    const groups = new Map();
+    for (const entry of ranked) {
+        const score = Math.round(scoreModel(entry, task));
+        const group = groups.get(score) ?? [];
+        group.push(entry);
+        groups.set(score, group);
+    }
+    for (const group of groups.values()) {
+        const key = group.map((e) => `${e.provider}:${e.model}`).join("|");
+        const start = (modelCursor.get(key) ?? 0) % group.length;
         const rotated = [...group.slice(start), ...group.slice(0, start)];
         for (let gi = 0; gi < rotated.length; gi++) {
             const entry = rotated[gi];
@@ -70,8 +77,8 @@ export async function route(req, pool, cb) {
             try {
                 const resp = await chat(entry, req, cb);
                 // advance cursor past the model that just succeeded
-                tierCursor.set(tier, (start + gi + 1) % group.length);
-                saveCursor(tierCursor);
+                modelCursor.set(key, (start + gi + 1) % group.length);
+                saveCursor(modelCursor);
                 attempts.push({ entry });
                 return { ...resp, entry, attempts };
             }
