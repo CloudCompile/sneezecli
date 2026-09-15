@@ -265,7 +265,7 @@ function banner(state: TuiState): void {
   const poolInfo = state.pool.length
     ? `${state.pool.length} models`
     : "empty pool — /provider to configure";
-  console.log(`\n${c.magenta}${c.bold}  ⚡ SNEEZE${c.reset} ${c.gray}·${c.reset} ${c.white}coding agent${c.reset}`);
+  console.log(`\n${c.magenta}${c.bold}  ◈ HARMONY${c.reset} ${c.gray}·${c.reset} ${c.white}coding agent${c.reset}`);
   console.log(`  ${c.gray}${poolInfo} · session ${c.dim}${state.session.id}${c.reset}`);
   console.log(`  ${c.gray}/help commands ${c.gray}·${c.gray} esc abort ${c.gray}·${c.gray}/exit quit${c.reset}`);
   console.log(`${rule()}\n`);
@@ -494,6 +494,9 @@ async function configureProvider(state: TuiState, rl: readline.Interface, prov: 
   state.cfg.models = state.pool;
   saveConfig(state.cfg);
   console.log(c.green(`✓ configured ${def.name}: added ${added} compatible models`) + c.reset);
+  if (prov === "ollama") {
+    console.log(c.gray("  Tip: add another installed model with `harmony add ollama <model>`; see `ollama list`.") + c.reset);
+  }
 }
 
 async function readSecret(prompt: string): Promise<string | undefined> {
@@ -616,6 +619,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
   const yolo = state.cfg.yolo || process.env.SNEEZE_YOLO_SESSION === "1";
   state.abort = new AbortController();
   let aborted = false;
+  const startedAt = Date.now();
   state.abort.signal.addEventListener("abort", () => {
     aborted = true;
   });
@@ -639,14 +643,15 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
   const events: AgentEvents = {
     onModel: (p, m) => {
       state.lastModel = `${p}/${m}`;
-      process.stdout.write(c.gray(`\n  ◦ ${p}/${m}`) + c.reset + "\n");
+      process.stdout.write(c.gray(`\n  ◦ model ${p}/${m} · ${elapsed(startedAt)}`) + c.reset + "\n");
     },
     onContent: (d) => process.stdout.write(d),
     onToolStart: (name, args) =>
-      process.stdout.write(c.cyan(`\n⚡ ${name} `) + c.gray + truncate(JSON.stringify(args), 90) + c.reset + "\n"),
+      process.stdout.write(c.cyan(`\n⚡ ${name} `) + c.gray + truncate(JSON.stringify(args), 90) + c.reset + ` ${c.dim}(${elapsed(startedAt)})${c.reset}\n`),
     onToolEnd: (name, result) => {
       const first = result.split("\n")[0];
-      process.stdout.write(c.gray(`  ↳ ${truncate(first, 100)}`) + c.reset + "\n");
+      const marker = /^ERROR|^EXIT|^ABORTED/.test(first) ? c.red("✗") : c.green("✓");
+      process.stdout.write(c.gray(`  ${marker} ${truncate(first, 100)} · ${elapsed(startedAt)}`) + c.reset + "\n");
     },
     confirm: yolo ? undefined : confirmPrompt,
     abortSignal: state.abort?.signal,
@@ -679,4 +684,9 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
     }
     state.abort = null;
   }
+}
+
+function elapsed(startedAt: number): string {
+  const seconds = Math.floor((Date.now() - startedAt) / 1000);
+  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m${seconds % 60}s`;
 }

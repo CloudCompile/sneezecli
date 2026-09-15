@@ -189,7 +189,8 @@ export async function chat(entry, req, cb) {
     if (streaming)
         body.stream = true;
     const headers = { "Content-Type": "application/json" };
-    headers["Authorization"] = `Bearer ${key}`;
+    if (key)
+        headers["Authorization"] = `Bearer ${key}`;
     if (entry.provider === "openrouter") {
         headers["HTTP-Referer"] = "https://github.com/harmony";
         headers["X-Title"] = "harmony";

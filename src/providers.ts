@@ -13,6 +13,7 @@ export type ProviderId =
   | "eden"
   | "poolside"
   | "orcarouter"
+  | "ollama"
   | "mock";
 
 export interface ProviderDef {
@@ -142,6 +143,15 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
     keyEnv: "ORCAROUTER_API_KEY",
     limits: { rpm: 20, scope: "provider" },
     notes: "Tier 2 — 20 RPM account-wide.",
+  },
+  ollama: {
+    id: "ollama",
+    name: "Ollama (local)",
+    baseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434/v1",
+    keyEnv: "OLLAMA_API_KEY",
+    limits: { scope: "model" },
+    keyless: true,
+    notes: "Local CPU/GPU models through Ollama. Start `ollama serve` first; no API key or cloud account required.",
   },
   mock: {
     id: "mock",

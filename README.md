@@ -120,6 +120,7 @@ Current providers are:
 | `requesty` | Account-wide daily limit |
 | `logfare` | Account-wide RPM limit |
 | `pollinations` | Keyed, per-model limits |
+| `ollama` | Local models through `ollama serve`; no API key required |
 
 Routing is model-first rather than provider-tier-first. Each request is ranked
 using the model's capability, coding, arena-preference, speed, latency, and
@@ -232,6 +233,38 @@ SNEEZE_CONFIG=./test-config.json harmony status
 
 The configuration includes the model pool, maximum output tokens, context
 limits, system prompt, iteration limit, and the default approval mode.
+
+## Comparing other coding-agent TUIs
+
+The repository includes terminal-recording launchers for comparing Harmony
+with Claude Code, OpenCode, and Codex. Install the clients separately, then
+run one of these commands from the repository root:
+
+```bash
+./scripts/record-opencode-tui.sh
+./scripts/record-codex-tui.sh
+./scripts/record-claude-tui.sh
+```
+
+Or use the dispatcher:
+
+```bash
+./scripts/record-agent-tui.sh opencode
+```
+
+Each session is saved as a `*.typescript` terminal recording under
+`.agent-recordings/` (override the directory with
+`HARMONY_AGENT_RECORD_DIR=/path/to/records`). OpenCode and Codex use the local
+Ollama model `hf.co/LiquidAI/LFM2.5-230M-GGUF:latest` by default. Override it with
+`OPENCODE_LOCAL_MODEL` or `CODEX_LOCAL_MODEL`. Claude Code requires an
+Anthropic-compatible endpoint and credentials; Ollama's OpenAI-compatible API
+cannot be used directly by Claude Code.
+
+For a small local smoke test, install Ollama and pull the model:
+
+```bash
+ollama pull qwen2.5-coder:1.5b
+```
 
 ## Development and mock mode
 
