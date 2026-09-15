@@ -212,9 +212,6 @@ export async function startTui(pool: ModelEntry[], cfg: Config, cwd: string, ini
   rl.prompt();
 
   const processLine = async (input: string): Promise<void> => {
-    // Readline can emit buffered line events after a raw-mode picker closes.
-    // Do not allow those events to re-enter provider setup or confirmations.
-    if (commandBusy) return;
     commandBusy = true;
     if (input.startsWith("/")) {
       try {

@@ -156,6 +156,7 @@ async function confirmPrompt(tool, summary) {
 }
 export async function startTui(pool, cfg, cwd, initialCommand) {
     const queue = [];
+    let commandBusy = false;
     const state = {
         session: { id: newSessionId(), created: new Date().toISOString(), cwd, messages: [] },
         pool,
@@ -177,33 +178,49 @@ export async function startTui(pool, cfg, cwd, initialCommand) {
     rl.setPrompt(`${c.magenta}❯${c.reset} `);
     rl.prompt();
     const processLine = async (input) => {
+        commandBusy = true;
         if (input.startsWith("/")) {
-            await handleCommand(state, input, rl);
-            if (!state.running)
-                rl.prompt();
+            try {
+                await handleCommand(state, input, rl);
+                if (!state.running)
+                    rl.prompt();
+            }
+            finally {
+                commandBusy = false;
+            }
             return;
         }
         // agent turn
         state.running = true;
         rl.pause();
-        await agentTurn(state, input, rl);
-        state.running = false;
-        rl.resume();
-        rl.prompt();
-        // drain anything typed while the turn was running
-        while (queue.length > 0) {
-            const next = queue.shift();
-            if (next === "/exit" || next === "/quit") {
-                rl.close();
-                return;
+        try {
+            await agentTurn(state, input, rl);
+            state.running = false;
+            rl.resume();
+            rl.prompt();
+            // drain anything typed while the turn was running
+            while (queue.length > 0) {
+                const next = queue.shift();
+                if (next === "/exit" || next === "/quit") {
+                    rl.close();
+                    return;
+                }
+                await processLine(next);
             }
-            await processLine(next);
+        }
+        finally {
+            commandBusy = false;
         }
     };
     rl.on("line", (line) => {
         const input = line.trim();
         if (!input) {
             rl.prompt();
+            return;
+        }
+        if (commandBusy && !state.running) {
+            // A picker or secret prompt owns stdin while this is true. Ignore any
+            // line event emitted from input buffered before raw mode was enabled.
             return;
         }
         if (state.running) {
