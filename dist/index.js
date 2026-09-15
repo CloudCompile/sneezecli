@@ -14,30 +14,30 @@ function arg(args, name) {
     return i >= 0 ? args[i + 1] : undefined;
 }
 function usage() {
-    console.log(`sneeze — BYOK agent harness over free LLM providers
+    console.log(`harmony — BYOK agent harness over free LLM providers
 
 Usage:
-  sneeze                                Interactive TUI (main mode)
-  sneeze --catalog                      Interactive provider/model catalog
-  sneeze run "<task>"                   One-shot agent task
-  sneeze -p "<task>"                    Same as run
-  sneeze run "<task>" --yolo            Auto-approve dangerous tools
-  sneeze run "<task>" --resume <id>     Continue a saved session
+  harmony                                Interactive TUI (main mode)
+  harmony --catalog                      Interactive provider/model catalog
+  harmony run "<task>"                   One-shot agent task
+  harmony -p "<task>"                    Same as run
+  harmony run "<task>" --yolo            Auto-approve dangerous tools
+  harmony run "<task>" --resume <id>     Continue a saved session
 
 Pool management:
-  sneeze add <provider> <model> [priority] [--rpm N]  (advanced)
-  sneeze add --auto                    Add all catalog models (advanced)
-  sneeze models [provider]             Browse catalog (advanced)
-  sneeze remove <index>
-  sneeze pool                           Show model pool
-  sneeze status                         Rate-limit / budget state
-  sneeze cost                           Session token/request usage
-  sneeze sync-models                    Refresh optional model metadata
+  harmony add <provider> <model> [priority] [--rpm N]  (advanced)
+  harmony add --auto                    Add all catalog models (advanced)
+  harmony models [provider]             Browse catalog (advanced)
+  harmony remove <index>
+  harmony pool                           Show model pool
+  harmony status                         Rate-limit / budget state
+  harmony cost                           Session token/request usage
+  harmony sync-models                    Refresh optional model metadata
 
 Other:
-  sneeze setup                          Show provider + key setup
-  sneeze providers                      List built-in providers
-  sneeze --help
+  harmony setup                          Show provider + key setup
+  harmony providers                      List built-in providers
+  harmony --help
 
 Providers: ${visibleProviders().map((p) => p.id).join(", ")}
 
@@ -47,7 +47,7 @@ Config: ${configPath()}`);
 function cmdStatus() {
     const cfg = loadConfig();
     if (cfg.models.length === 0) {
-        console.log("Pool is empty. Run `sneeze setup` or `sneeze add`.");
+        console.log("Pool is empty. Run `harmony setup` or `harmony add`.");
         return;
     }
     console.log("Model pool (task score descending = best first):\n");
@@ -98,7 +98,7 @@ function cmdModels(provider, tag) {
             console.log(`  ${m.model.padEnd(55)}${rpm.padEnd(10)}${ctx} ${C.dim(tags)}`);
         }
     }
-    console.log(`\nadd with: sneeze add <provider> <model> [priority]  |  or: sneeze add --auto`);
+    console.log(`\nadd with: harmony add <provider> <model> [priority]  |  or: harmony add --auto`);
 }
 function cmdAddAuto() {
     const cfg = loadConfig();
@@ -175,17 +175,17 @@ function cmdProviders() {
     }
 }
 function cmdSetup() {
-    console.log("sneeze setup\n");
+    console.log("harmony setup\n");
     console.log("1. Export your API keys:\n");
     for (const def of visibleProviders()) {
         console.log(`   export ${def.keyEnv}=...   # ${def.name} — ${def.notes}`);
     }
     console.log(`\n2. Add the catalog and let task-aware routing rank models:\n`);
-    console.log(`   sneeze add --auto`);
+    console.log(`   harmony add --auto`);
     console.log(`\n3. Check and run:\n`);
-    console.log(`   sneeze status`);
-    console.log(`   sneeze            # interactive REPL`);
-    console.log(`   sneeze run "task"`);
+    console.log(`   harmony status`);
+    console.log(`   harmony            # interactive REPL`);
+    console.log(`   harmony run "task"`);
     console.log(`\nConfig: ${configPath()}`);
 }
 async function cmdRun(task, cfg, resumeId) {
@@ -200,7 +200,7 @@ async function cmdRun(task, cfg, resumeId) {
         console.error(`Models without keys will be skipped.\n`);
     }
     const cwd = process.cwd();
-    console.log(`sneeze — task: ${task}\ncwd: ${cwd}\n`);
+    console.log(`harmony — task: ${task}\ncwd: ${cwd}\n`);
     const history = resumeId ? (loadSession(resumeId)?.messages ?? []) : [];
     if (resumeId && history.length === 0) {
         console.error(`Session ${resumeId} not found or empty — starting fresh.`);
@@ -290,13 +290,13 @@ async function main() {
             const tier = args[3];
             const rpm = arg(args, "--rpm");
             if (!provider || !model) {
-                console.error("Usage: sneeze add <provider> <model> [tier] [--rpm N]");
+                console.error("Usage: harmony add <provider> <model> [tier] [--rpm N]");
                 process.exit(1);
             }
             const cat = findCatalogModel(provider, model);
             if (!cat) {
                 console.error(`"${model}" is not in the ${provider} catalog.`);
-                console.error(`Browse: sneeze models ${provider}`);
+                console.error(`Browse: harmony models ${provider}`);
                 process.exit(1);
             }
             cmdAdd(provider, model, tier, rpm);
@@ -304,7 +304,7 @@ async function main() {
         }
         case "remove":
             if (!args[1]) {
-                console.error("Usage: sneeze remove <index>");
+                console.error("Usage: harmony remove <index>");
                 process.exit(1);
             }
             cmdRemove(args[1]);
@@ -320,11 +320,11 @@ async function main() {
             const cfg = loadConfig();
             const { task, resumeId } = applyRunFlags(args, cfg);
             if (!task) {
-                console.error(`Usage: sneeze run "<task>" [--yolo] [--resume <id>]`);
+                console.error(`Usage: harmony run "<task>" [--yolo] [--resume <id>]`);
                 process.exit(1);
             }
             if (cfg.models.length === 0) {
-                console.error("Pool is empty. Add models first: sneeze add --auto");
+                console.error("Pool is empty. Add models first: harmony add --auto");
                 process.exit(1);
             }
             await cmdRun(task, cfg, resumeId);

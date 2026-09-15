@@ -29,14 +29,14 @@ Node.js 20 or newer is required. Git and source installs build automatically.
 To use the current repository version before it is published to npm:
 
 ```bash
-npm install --global https://github.com/harmonyjayhauser/harmony.git
+npm install --global https://github.com/sneezejayhauser/sneezecli.git
 harmony
 ```
 
 ### From a checkout
 
 ```bash
-git clone https://github.com/harmonyjayhauser/harmony.git
+git clone https://github.com/sneezejayhauser/sneezecli.git
 cd harmony
 npm install
 npm link

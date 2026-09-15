@@ -3,7 +3,7 @@
 // the pool config references these by provider + model id.
 //
 // rpm: per-model RPM limit (undefined = no documented limit)
-// tags: capability hints used by `sneeze models` filtering and routing
+// tags: capability hints used by `harmony models` filtering and routing
 // ctx: context window in tokens (informational)
 export const CATALOG = [
     // ── OpenRouter (tier 1 — 50 rpd account-wide, spend on hardest tasks) ──

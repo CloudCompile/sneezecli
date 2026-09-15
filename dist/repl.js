@@ -69,7 +69,7 @@ export async function startRepl(pool, cfg, cwd) {
         cfg,
         cwd,
     };
-    console.log(C.bold(`\nsneeze`) + C.dim(` — ${pool.length} models in pool · cwd ${cwd}`));
+    console.log(C.bold(`\nharmony`) + C.dim(` — ${pool.length} models in pool · cwd ${cwd}`));
     console.log(C.dim(`session ${state.session.id} · /help for commands\n`));
     const rl = readline.createInterface({
         input: process.stdin,
