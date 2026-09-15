@@ -250,8 +250,11 @@ export async function chat(
   if (!key && !def.keyless) throw new Error(`${def.name}: missing ${def.keyEnv} env var`);
   if (!def.baseUrl) throw new Error(`${def.name}: no baseUrl configured`);
 
-  // ── Pollinations no-auth adapter: v1/chat/completions → GET /{prompt} ──
+  // ── Pollinations no-auth adapter: local chat shape → GET /{prompt} ──
   if (entry.provider === "pollinations-noauth") {
+    if (req.tools?.length) {
+      throw new Error("Pollinations no-auth does not support tools; use a keyed provider for tool tasks");
+    }
     return await chatNoAuth(entry, req, cb);
   }
 
@@ -319,25 +322,32 @@ export async function chat(
 }
 
 /**
- * text.pollinations.ai/{prompt} — GET with the prompt URL-encoded in the path.
- * No tools, no streaming. The whole conversation is flattened into one prompt.
- * Always-on last resort when every keyed provider is rate-limited or down.
+ * Adapt the browser-oriented text endpoint to the internal chat-completions
+ * contract. The endpoint remains a GET; callers still receive ChatResponse.
+ * No tools or streaming are possible, so the conversation is flattened into
+ * one prompt and the text model is selected explicitly.
  */
 async function chatNoAuth(
   entry: ModelEntry,
   req: ChatRequest,
   cb?: StreamCallbacks
 ): Promise<ChatResponse> {
+  const system = req.messages.find((m) => m.role === "system")?.content;
   const prompt =
     req.messages
-      .filter((m) => m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length))
+      .filter((m) => m.role !== "system" && m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length))
       .map((m) => {
-        const label = m.role === "system" ? "Instructions" : m.role === "user" ? "User" : "Assistant";
+        const label = m.role === "user" ? "User" : "Assistant";
         return `${label}: ${m.content}`;
       })
       .join("\n\n") + "\n\nAssistant:";
 
-  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
+  // Keep this as the browser-style GET endpoint. Chat state is flattened into
+  // the path, while supported chat options are translated to query params.
+  const query = new URLSearchParams({ model: entry.model });
+  if (system) query.set("system", system);
+  if (req.temperature !== undefined) query.set("temperature", String(req.temperature));
+  const url = `${PROVIDERS[entry.provider].baseUrl}/${encodeURIComponent(prompt)}?${query}`;
   let lastErr: Error | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 700));
@@ -358,6 +368,9 @@ async function chatNoAuth(
       throw new HttpError(res.status, `Pollinations no-auth HTTP ${res.status}: ${text.slice(0, 200)}`);
     }
     const text = await res.text();
+    if (/api key used for this request has reached its budget/i.test(text)) {
+      throw new HttpError(402, "Pollinations no-auth endpoint rejected the request because its server-side API-key budget is exhausted");
+    }
     recordRequest(entry, estTokens(req.messages), Math.ceil(text.length / 4));
     if (cb?.onContent) cb.onContent(text);
     return { content: text, toolCalls: [] };
