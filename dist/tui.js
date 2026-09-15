@@ -54,7 +54,6 @@ function enableRaw(h) {
 function disableRaw() {
     if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
-        process.stdin.pause();
     }
 }
 // ── picker ────────────────────────────────────────────────────────────
@@ -212,8 +211,9 @@ export async function startTui(pool, cfg, cwd, initialCommand) {
         void processLine(input);
     });
     rl.on("close", () => {
-        console.log(c.gray("\nbye") + c.reset);
-        process.exit(0);
+        // Do not force-exit here. A picker temporarily pauses readline; closing
+        // readline must not terminate the process before the TUI can resume.
+        console.log(c.gray("\ninput closed") + c.reset);
     });
     if (initialCommand) {
         await handleCommand(state, initialCommand, rl);
@@ -224,7 +224,7 @@ export async function startTui(pool, cfg, cwd, initialCommand) {
 function banner(state) {
     const poolInfo = state.pool.length
         ? `${state.pool.length} models`
-        : "empty pool — /model to add";
+        : "empty pool — /provider to configure";
     const lines = [
         `${c.bold}${c.magenta}  ⚡ sneezecli${c.reset} ${c.gray}—${c.reset} ${poolInfo} ${c.gray}·${c.reset} session ${c.dim}${state.session.id}${c.reset}`,
         `${c.gray}  /help for commands · esc aborts a running turn${c.reset}`,
@@ -295,20 +295,15 @@ async function handleCommand(state, input, rl) {
         case "/model":
         case "/models": {
             if (state.pool.length === 0) {
-                console.log(c.gray("no configured models — use /catalog to add one or run `sneezecli add --auto`") + c.reset);
+                console.log(c.gray("no configured models — use /provider or /catalog") + c.reset);
                 break;
             }
-            const picked = await withPicker(rl, () => pickConfiguredModel(state));
-            if (picked) {
-                state.pool = [picked, ...state.pool.filter((m) => !(m.provider === picked.provider && m.model === picked.model))];
-                saveConfig({ ...state.cfg, models: state.pool });
-                console.log(c.green(`✓ primary model: ${c.bold}${picked.provider}/${picked.model}${c.reset}`) + c.reset);
-            }
+            console.log(c.gray(`${state.pool.length} configured models. Routing selects models automatically per task.`) + c.reset);
             break;
         }
         case "/pool":
             if (state.pool.length === 0)
-                console.log(c.gray("pool is empty — /catalog to add models") + c.reset);
+                console.log(c.gray("pool is empty — /provider to configure a provider") + c.reset);
             state.pool.forEach((m, i) => {
                 const def = PROVIDERS[m.provider];
                 const b = checkBudget(m);
@@ -448,14 +443,16 @@ async function configureProvider(state, rl, prov) {
     }
     const models = CATALOG.filter((m) => m.provider === prov && !m.tags?.some((t) => ["asr", "tts", "image", "embed"].includes(t)));
     const existing = new Set(state.pool.filter((m) => m.provider === prov).map((m) => m.model));
+    let added = 0;
     for (const model of models) {
         if (!existing.has(model.model)) {
             state.pool.push({ provider: prov, model: model.model, rpm: model.rpm });
+            added++;
         }
     }
     state.cfg.models = state.pool;
     saveConfig(state.cfg);
-    console.log(c.green(`✓ configured ${def.name}: added ${models.length - [...existing].filter((m) => models.some((x) => x.model === m)).length} models`) + c.reset);
+    console.log(c.green(`✓ configured ${def.name}: added ${added} compatible models`) + c.reset);
 }
 async function readSecret(prompt) {
     return new Promise((resolve) => {
@@ -483,14 +480,6 @@ async function withPicker(rl, fn) {
     finally {
         rl.resume();
     }
-}
-async function pickConfiguredModel(state) {
-    const picked = await pick("Configured models", state.pool.map((m) => ({
-        label: `${m.provider}/${m.model}`,
-        hint: m.priority !== undefined ? `priority ${m.priority}` : "auto-ranked",
-        value: m,
-    })));
-    return picked;
 }
 async function compactSession(state) {
     const msgs = state.session.messages;
@@ -549,7 +538,7 @@ function printHelp() {
         ["/sessions", "list saved sessions"],
         ["/rename <n>", "name current session"],
         ["/delete-session", "remove a saved session"],
-        ["/model", "choose among configured models"],
+        ["/model", "show configured model count; routing is automatic"],
         ["/catalog [prov]", "configure provider and add all models"],
         ["/provider [id]", "configure one provider"],
         ["/pool", "show model pool"],

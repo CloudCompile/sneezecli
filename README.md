@@ -92,8 +92,10 @@ such as `pollinations-noauth` skip the key prompt. The provider key and model
 pool are saved in `~/.config/sneezecli/config.json`, so they are available the
 next time you run `sneezecli`.
 
-Inside the TUI, `/catalog` or `/provider` opens the same flow. `/model` only
-selects among models already configured; it does not browse the entire catalog.
+Inside the TUI, `/catalog` or `/provider` opens the same flow. There is no
+visible model list in onboarding: selecting a provider configures it and adds
+all compatible text models automatically. `/model` only reports the configured
+pool; task-aware routing chooses the actual model.
 
 ## Providers and routing
 
@@ -173,7 +175,7 @@ Available slash commands:
 /sessions             List saved sessions
 /rename <name>        Rename the current session
 /delete-session       Delete a saved session
-/model                Choose among configured models
+/model                Show configured model count; routing is automatic
 /catalog              Choose a provider, then browse/add its models
 /pool                 Show the configured model pool
 /providers            List providers

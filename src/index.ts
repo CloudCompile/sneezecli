@@ -29,9 +29,9 @@ Usage:
   sneezecli run "<task>" --resume <id>     Continue a saved session
 
 Pool management:
-  sneezecli add <provider> <model> [priority] [--rpm N]
-  sneezecli add --auto                    Add all catalog models
-  sneezecli models [provider]             Browse the built-in model catalog
+  sneezecli add <provider> <model> [priority] [--rpm N]  (advanced)
+  sneezecli add --auto                    Add all catalog models (advanced)
+  sneezecli models [provider]             Browse catalog (advanced)
   sneezecli remove <index>
   sneezecli pool                           Show model pool
   sneezecli status                         Rate-limit / budget state
@@ -261,8 +261,8 @@ async function main(): Promise<void> {
     if (!cmd) {
       const cfg = loadConfig();
       if (cfg.models.length === 0) {
-        // allow TUI with empty pool — user can add via /model or /catalog
-        console.error(cDim("Pool is empty — use /model or /catalog inside the TUI to add models."));
+        // allow TUI with empty pool — user configures a provider interactively
+        console.error(cDim("Pool is empty — use /provider or /catalog inside the TUI."));
         console.error("");
       }
       await startTui(cfg.models, cfg, process.cwd());
