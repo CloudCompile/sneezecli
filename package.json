@@ -15,6 +15,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "test:tool-parser": "npm run build && node scripts/test-tool-parser.mjs",
     "prepublishOnly": "npm run build"
   },
   "repository": {

@@ -46,6 +46,7 @@ export async function runAgent(
   messages.push({ role: "user", content: userTask });
 
   const tools = toolDefs();
+  let selectedModel: ModelEntry | undefined;
 
   const maxIter = cfg.maxIterations ?? 40;
   for (let i = 0; i < maxIter; i++) {
@@ -56,8 +57,10 @@ export async function runAgent(
       { messages, tools, maxTokens: cfg.maxTokens },
       pool,
       { onContent: events.onContent },
-      userTask
+      userTask,
+      selectedModel
     );
+    selectedModel = resp.entry;
     events.onModel?.(resp.entry.provider, resp.entry.model);
 
     if (resp.toolCalls.length === 0) {

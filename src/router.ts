@@ -59,7 +59,8 @@ export async function route(
   req: ChatRequest,
   pool: ModelEntry[],
   cb?: StreamCallbacks,
-  task = ""
+  task = "",
+  preferred?: ModelEntry
 ): Promise<RouteResult> {
   const attempts: RouteAttempt[] = [];
   // Tiny local smoke-test models can answer text but may ignore the tool
@@ -71,6 +72,16 @@ export async function route(
     : pool;
   const candidates = toolCapable.length > 0 ? toolCapable : pool;
   const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+  // Keep one model for the whole agent turn whenever possible. Switching
+  // models between tool calls loses provider-specific formatting and context
+  // discipline, which is especially damaging on small/free models.
+  if (preferred) {
+    const preferredIndex = ranked.findIndex((e) => e.provider === preferred.provider && e.model === preferred.model);
+    if (preferredIndex > 0) {
+      const [entry] = ranked.splice(preferredIndex, 1);
+      ranked.unshift(entry);
+    }
+  }
   const groups = new Map<number, ModelEntry[]>();
   for (const entry of ranked) {
     const score = Math.round(scoreModel(entry, task));
