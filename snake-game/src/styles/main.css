@@ -1,0 +1,103 @@
+/* Global styles for the snake game */
+
+:root {
+  --bg-color: #f0f0f0;
+  --card-bg: #ffffff;
+  --text-color: #333;
+  --accent-color: #4CAF50;
+  --danger-color: #e74c3c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  font-family: Arial, sans-serif;
+}
+
+/* Game area container */
+.game-area {
+  position: relative;
+  width: 400px;
+  height: 400px;
+  background-color: var(--card-bg);
+  border: 2px solid #333;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+/* Snake segments */
+.snake-segment {
+  position: absolute;
+  background-color: var(--accent-color);
+  border-radius: 4px;
+  transition: transform 0.1s ease;
+}
+
+.snake-segment.head {
+  background-color: #388E3C;
+  box-shadow: 0 0 15px #388E3C;
+}
+
+/* Food element */
+.food {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-color: #FF5733;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Game over overlay */
+.game-over-screen {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #222;
+  color: #fff;
+  padding: 40px 60px;
+  border-radius: 12px;
+  text-align: center;
+  z-index: 10;
+}
+
+.game-over-screen h2 {
+  margin-bottom: 20px;
+  font-size: 1.8em;
+  color: #ff6b6b;
+}
+
+.game-over-screen p {
+  margin-bottom: 30px;
+  font-size: 1.4em;
+}
+
+.game-over-screen button {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 14px 36px;
+  font-size: 1.1em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.game-over-screen button:hover {
+  background-color: #45a049;
+}
