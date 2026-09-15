@@ -325,7 +325,8 @@ export async function chat(
  * Adapt the browser-oriented text endpoint to the internal chat-completions
  * contract. The endpoint remains a GET; callers still receive ChatResponse.
  * No tools or streaming are possible, so the conversation is flattened into
- * one prompt and the text model is selected explicitly.
+ * one prompt. The endpoint's browser default is intentionally preserved by
+ * omitting all query parameters, including `model`.
  */
 async function chatNoAuth(
   entry: ModelEntry,
@@ -342,12 +343,12 @@ async function chatNoAuth(
       })
       .join("\n\n") + "\n\nAssistant:";
 
-  // Keep this as the browser-style GET endpoint. Chat state is flattened into
-  // the path, while supported chat options are translated to query params.
-  const query = new URLSearchParams({ model: entry.model });
-  if (system) query.set("system", system);
-  if (req.temperature !== undefined) query.set("temperature", String(req.temperature));
-  const url = `${PROVIDERS[entry.provider].baseUrl}/${encodeURIComponent(prompt)}?${query}`;
+  // Keep this exactly like the browser-tested endpoint: only the encoded
+  // prompt is sent in the path. The no-auth endpoint's default model is used;
+  // adding model or other query parameters can route through a budgeted key.
+  const url = `${PROVIDERS[entry.provider].baseUrl}/${encodeURIComponent(
+    system ? `${system}\n\n${prompt}` : prompt
+  )}`;
   let lastErr: Error | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 700));
