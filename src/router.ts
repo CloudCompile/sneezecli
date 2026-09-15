@@ -21,7 +21,7 @@ function sleep(ms: number): Promise<void> {
 
 /** Per-ranked-group round-robin cursor: next call starts where the last one left off.
  *  Persisted to disk so separate one-shot `run` invocations keep rotating. */
-const CURSOR_PATH = process.env.SNEEZE_CURSOR ?? `${homedir()}/.config/sneeze/cursor.json`;
+const CURSOR_PATH = process.env.SNEEZE_CURSOR ?? `${homedir()}/.config/harmony/cursor.json`;
 
 function loadCursor(): Map<string, number> {
   try {

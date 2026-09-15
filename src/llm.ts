@@ -68,7 +68,7 @@ export const usageLog = new Map<string, Usage>();
 const cooldownUntil = new Map<string, number>();
 
 /** Rate state persisted to disk so one-shot `run` invocations share budgets. */
-const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/sneeze/rate.json`;
+const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/harmony/rate.json`;
 
 function loadRateStates(): Map<string, RateState> {
   try {
@@ -266,8 +266,8 @@ export async function chat(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   headers["Authorization"] = `Bearer ${key}`;
   if (entry.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://github.com/sneeze";
-    headers["X-Title"] = "sneeze";
+    headers["HTTP-Referer"] = "https://github.com/harmony";
+    headers["X-Title"] = "harmony";
   }
 
   let lastErr: Error | undefined;

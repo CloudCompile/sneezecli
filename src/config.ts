@@ -31,7 +31,7 @@ export interface Config {
 }
 
 function configDir(): string {
-  return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/sneeze`;
+  return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/harmony`;
 }
 function sessionsDirPath(): string {
   return `${configDir()}/sessions`;
@@ -66,7 +66,7 @@ export function defaultConfig(): Config {
     maxContextMessages: 40,
     yolo: false,
     systemPrompt:
-      "You are sneeze, a capable coding agent working in the user's repository. " +
+      "You are harmony, a capable coding agent working in the user's repository. " +
       "Use the provided tools to read, explore, edit, and run code. " +
       "Prefer precise edit_file operations over rewriting whole files. " +
       "When done, summarize what you changed.",

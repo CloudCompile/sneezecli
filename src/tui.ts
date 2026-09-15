@@ -443,7 +443,7 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
       const md = state.session.messages
         .map((m) => `## ${m.role}\n\n${m.content}\n`)
         .join("\n");
-      writeFileSync(file, `# sneeze session ${state.session.name ?? state.session.id}\n\n${md}`);
+      writeFileSync(file, `# harmony session ${state.session.name ?? state.session.id}\n\n${md}`);
       console.log(c.green(`exported to ${file}`) + c.reset);
       break;
     }
