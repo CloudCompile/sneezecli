@@ -135,6 +135,24 @@ export const CATALOG: CatalogModel[] = [
   { provider: "pollinations", model: "community/NamanSoni78/Z-Image-Turbo", tier: 4, tags: ["image"] },
   { provider: "pollinations", model: "community/Spit-fires/muse-glimmer", tier: 4, tags: ["general"] },
 
+  // ── Additional OpenAI-compatible providers ──
+  { provider: "llmgateway", model: "atria/atria-dawn-preview", tier: 1, tags: ["general", "code"] },
+  { provider: "agnes", model: "agnes-2.5-flash", rpm: 20, tier: 2, tags: ["fast", "general"] },
+  { provider: "agnes", model: "agnes-3.0-flash", rpm: 20, tier: 2, tags: ["fast", "general"] },
+  { provider: "eden", model: "ternary-bonsai-27b", rpm: 60, tier: 2, tags: ["general", "code"] },
+  { provider: "eden", model: "google/gemma-4-31b-it", rpm: 60, tier: 2, tags: ["general"] },
+  { provider: "eden", model: "gemma-2b-it-lora", rpm: 60, tier: 3, tags: ["fast", "general"] },
+  { provider: "eden", model: "google/gemma-4-26b-a4b-it", rpm: 60, tier: 2, tags: ["general"] },
+  { provider: "eden", model: "gemma-7b-it-lora", rpm: 60, tier: 3, tags: ["general"] },
+  { provider: "eden", model: "mistral-7b-instruct-v0.2-lora", rpm: 60, tier: 3, tags: ["general"] },
+  { provider: "eden", model: "llama-2-7b-chat-hf-lora", rpm: 60, tier: 3, tags: ["general"] },
+  { provider: "poolside", model: "poolside/laguna-s-2.1", tier: 2, tags: ["code"] },
+  { provider: "poolside", model: "poolside/laguna-xs-2.1", tier: 2, tags: ["code", "fast"] },
+  { provider: "orcarouter", model: "orcarouter/free", rpm: 20, tier: 2, tags: ["general"] },
+  { provider: "orcarouter", model: "deepseek/deepseek-v4-flash-free", rpm: 20, tier: 2, tags: ["code", "fast"] },
+  { provider: "orcarouter", model: "tencent/hy3-free", rpm: 20, tier: 2, tags: ["general"] },
+  { provider: "orcarouter", model: "z-ai/glm-5.3-flash-free", rpm: 20, tier: 2, tags: ["code", "fast"] },
+
 ];
 
 export function catalogFor(provider: string): CatalogModel[] {

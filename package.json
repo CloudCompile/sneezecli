@@ -19,9 +19,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sneezejayhauser/sneezecli.git"
+    "url": "https://github.com/sneezejayhauser/harmony.git"
   },
-  "homepage": "https://github.com/sneezejayhauser/sneezecli",
+  "homepage": "https://github.com/sneezejayhauser/harmony",
   "license": "MIT",
   "engines": {
     "node": ">=20"

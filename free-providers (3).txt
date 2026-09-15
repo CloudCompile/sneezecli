@@ -1,0 +1,77 @@
+FREE AI PROVIDER REGISTRY
+================================================================
+Generated: 2026-09-15T16:34:49.065Z
+Providers: 5  |  Models: 16
+
+KEY
+────────────────────────────────────────
+RPM    = Requests per minute  (∞ = no documented limit)
+RPD    = Requests per day     (∞ = no documented limit)
+I-TPM  = Input tokens per minute
+O-TPM  = Output tokens per minute
+BUDGET = One-time token allocation (not replenishing)
+BYOK   = Bring your own API key
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 1 — premium free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  LLMGateway
+  URL:    https://api.llmgateway.io/v1
+  Auth:   byok
+  RPM:    ∞   RPD: ∞
+  Models (1):
+    - atria/atria-dawn-preview  [∞ RPM]
+  ────────────────────────────────────────────────────────────
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tier 2 — mid capable
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Agnes AI
+  URL:    https://apihub.agnes-ai.com/v1
+  Auth:   byok
+  RPM:    20   RPD: ∞
+  Models (2):
+    - agnes-2.5-flash  [20 RPM]
+    - agnes-3.0-flash  [20 RPM]
+  ────────────────────────────────────────────────────────────
+
+  Eden AI
+  URL:    https://api.edenai.run/v3/
+  Auth:   byok
+  RPM:    60   RPD: ∞
+  Models (7):
+    - ternary-bonsai-27b  [60 RPM]
+    - google/gemma-4-31b-it  [60 RPM]
+    - gemma-2b-it-lora  [60 RPM]
+    - google/gemma-4-26b-a4b-it  [60 RPM]
+    - gemma-7b-it-lora  [60 RPM]
+    - mistral-7b-instruct-v0.2-lora  [60 RPM]
+    - llama-2-7b-chat-hf-lora  [60 RPM]
+  Notes:  v3 endpoint still uses /v3/chat/completions, same as any other api
+  ────────────────────────────────────────────────────────────
+
+  Poolside
+  URL:    https://inference.poolside.ai/v1/
+  Auth:   byok
+  RPM:    ∞   RPD: ∞
+  Models (2):
+    - poolside/laguna-s-2.1  [∞ RPM]
+    - poolside/laguna-xs-2.1  [∞ RPM]
+  Notes:  RPM and RPD not specified, dynamic limits.
+  ────────────────────────────────────────────────────────────
+
+  OrcaRouter
+  URL:    https://api.orcarouter.ai/v1
+  Auth:   byok
+  RPM:    20   RPD: ∞
+  Models (4):
+    - orcarouter/free  [20 RPM]
+    - deepseek/deepseek-v4-flash-free  [20 RPM]
+    - tencent/hy3-free  [20 RPM]
+    - z-ai/glm-5.3-flash-free  [20 RPM]
+  ────────────────────────────────────────────────────────────
+
+================================================================
