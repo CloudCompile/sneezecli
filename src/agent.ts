@@ -2,6 +2,7 @@ import type { ChatMessage, ToolCall } from "./llm.js";
 import { route } from "./router.js";
 import { runTool, toolDefs, isDangerous } from "./tools.js";
 import type { ModelEntry, Config } from "./config.js";
+import { debugLog } from "./debug-log.js";
 
 export class AgentAborted extends Error {
   constructor() {
@@ -45,6 +46,7 @@ export async function runAgent(
     messages.push({ role: "system", content: cfg.systemPrompt });
   }
   messages.push({ role: "user", content: userTask });
+  debugLog("agent.start", { task: userTask, cwd, poolSize: pool.length, history: history.length });
 
   const tools = toolDefs();
   let selectedModel: ModelEntry | undefined;
@@ -55,13 +57,14 @@ export async function runAgent(
       throw new AgentAborted();
     }
     const resp = await route(
-      { messages, tools, maxTokens: cfg.maxTokens },
+      { messages, tools, maxTokens: cfg.maxTokens, temperature: 1.0, topP: 0.9 },
       pool,
       { onContent: events.onContent, onCorruption: events.onCorruption },
       userTask,
       selectedModel
     );
     selectedModel = resp.entry;
+    debugLog("agent.model", { provider: resp.entry.provider, model: resp.entry.model, iteration: i + 1 });
     events.onModel?.(resp.entry.provider, resp.entry.model);
 
     if (resp.toolCalls.length === 0) {
@@ -99,6 +102,7 @@ export async function runAgent(
       }
 
       events.onToolStart?.(tc.function.name, args);
+      debugLog("tool.start", { name: tc.function.name, args });
       const result = await runTool(tc.function.name, args, {
         cwd,
         confirm: events.confirm,
@@ -108,6 +112,7 @@ export async function runAgent(
       });
       toolCallsMade.push({ name: tc.function.name, args, result });
       events.onToolEnd?.(tc.function.name, result);
+      debugLog("tool.end", { name: tc.function.name, chars: result.length });
       messages.push({ role: "tool", tool_call_id: tc.id, content: result });
     }
 

@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat } from "./llm.js";
 import { metadataFor, scoreModel } from "./model-data.js";
+import { debugLog } from "./debug-log.js";
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
@@ -73,6 +74,7 @@ export async function route(req, pool, cb, task = "", preferred) {
         const rotated = [...group.slice(start), ...group.slice(0, start)];
         for (let gi = 0; gi < rotated.length; gi++) {
             const entry = rotated[gi];
+            debugLog("route.try", { provider: entry.provider, model: entry.model, attempt: providerAttempts + 1 });
             if (providerAttempts++ >= 12) {
                 throw new Error(`Stopped after 12 provider attempts; no reliable model responded.\n` +
                     attempts.map((a) => `  - ${a.entry.provider}/${a.entry.model}: ${a.error ?? "ok"}`).join("\n"));
@@ -107,6 +109,7 @@ export async function route(req, pool, cb, task = "", preferred) {
             }
             catch (err) {
                 attempts.push({ entry, error: err?.message ?? String(err) });
+                debugLog("route.fail", { provider: entry.provider, model: entry.model, error: err?.message ?? String(err) });
                 modelCursor.set(key, (start + gi + 1) % group.length);
                 saveCursor(modelCursor);
                 continue;

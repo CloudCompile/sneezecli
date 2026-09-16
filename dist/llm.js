@@ -4,6 +4,7 @@ import { loadConfig } from "./config.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
+import { debugLog } from "./debug-log.js";
 export class HttpError extends Error {
     status;
     constructor(status, message) {
@@ -179,8 +180,18 @@ export async function chat(entry, req, cb) {
         messages: req.messages,
         max_tokens: req.maxTokens ?? 4096,
     };
-    if (req.temperature !== undefined)
-        body.temperature = req.temperature;
+    body.temperature = req.temperature ?? 0.2;
+    body.top_p = req.topP ?? 0.9;
+    debugLog("request.start", {
+        provider: entry.provider,
+        model: entry.model,
+        messageCount: req.messages.length,
+        toolCount: req.tools?.length ?? 0,
+        maxTokens: body.max_tokens,
+        temperature: body.temperature,
+        topP: body.top_p,
+        streaming: !!cb?.onContent,
+    });
     if (req.tools && req.tools.length > 0) {
         body.tools = req.tools;
         body.tool_choice = "auto";
@@ -206,14 +217,17 @@ export async function chat(entry, req, cb) {
                 headers,
                 body: JSON.stringify(body),
             });
+            debugLog("request.http", { provider: entry.provider, model: entry.model, status: res.status });
         }
         catch (err) {
             lastErr = new Error(`${def.name}: network error: ${err?.message ?? err}`);
+            debugLog("request.network_error", { provider: entry.provider, model: entry.model, error: lastErr.message });
             continue;
         }
         if (res.status === 429) {
             markRateLimited(entry);
             lastErr = new HttpError(429, `${def.name}: rate limited`);
+            debugLog("request.rate_limited", { provider: entry.provider, model: entry.model });
             continue;
         }
         if (!res.ok) {
@@ -221,6 +235,7 @@ export async function chat(entry, req, cb) {
             throw new HttpError(res.status, `${def.name} HTTP ${res.status}: ${text.slice(0, 300)}`);
         }
         if (streaming && res.body) {
+            debugLog("stream.start", { provider: entry.provider, model: entry.model });
             return await consumeStream(entry, req, res, cb);
         }
         const json = (await res.json());
@@ -277,6 +292,7 @@ async function consumeStream(entry, req, res, cb) {
                     if (content.length >= 60 && looksGarbled(content)) {
                         const reason = "mixed scripts / statistically unlikely text";
                         cb.onCorruption?.(content, reason, entry.provider, entry.model);
+                        debugLog("response.corrupt", { provider: entry.provider, model: entry.model, chars: content.length, reason });
                         throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
                     }
                 }
@@ -294,8 +310,13 @@ async function consumeStream(entry, req, res, cb) {
                     }
                 }
             }
-            catch {
-                // ignore malformed SSE chunks
+            catch (err) {
+                // Ignore malformed individual SSE chunks, but never swallow the
+                // deliberate corruption signal: the router must receive it so it can
+                // abandon this model and retry with the next one.
+                if (err instanceof Error && err.message.includes("model returned likely corrupted text")) {
+                    throw err;
+                }
             }
         }
     }
@@ -312,6 +333,7 @@ async function consumeStream(entry, req, res, cb) {
     if (toolCalls.length === 0 && looksGarbled(content)) {
         throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
     }
+    debugLog("response.complete", { provider: entry.provider, model: entry.model, chars: content.length, toolCalls: toolCalls.length });
     return { content, toolCalls };
 }
 function looksGarbled(content) {

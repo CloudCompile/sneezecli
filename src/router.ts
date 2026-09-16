@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat, type ChatRequest, type ChatResponse, type StreamCallbacks } from "./llm.js";
 import { metadataFor, scoreModel } from "./model-data.js";
+import { debugLog } from "./debug-log.js";
 
 export interface RouteAttempt {
   entry: ModelEntry;
@@ -98,6 +99,7 @@ export async function route(
 
     for (let gi = 0; gi < rotated.length; gi++) {
       const entry = rotated[gi];
+      debugLog("route.try", { provider: entry.provider, model: entry.model, attempt: providerAttempts + 1 });
       if (providerAttempts++ >= 12) {
         throw new Error(
           `Stopped after 12 provider attempts; no reliable model responded.\n` +
@@ -132,6 +134,7 @@ export async function route(
         return { ...resp, entry, attempts };
       } catch (err: any) {
         attempts.push({ entry, error: err?.message ?? String(err) });
+        debugLog("route.fail", { provider: entry.provider, model: entry.model, error: err?.message ?? String(err) });
         modelCursor.set(key, (start + gi + 1) % group.length);
         saveCursor(modelCursor);
         continue;

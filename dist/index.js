@@ -5,6 +5,7 @@ import { scoreModel, syncMetadata, metadataPath } from "./model-data.js";
 import { loadConfig, saveConfig, configPath, loadSession } from "./config.js";
 import { runAgent } from "./agent.js";
 import { usageLog, checkBudget } from "./llm.js";
+import { debugLogPath } from "./debug-log.js";
 import { startTui } from "./tui.js";
 const C = {
     dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -41,7 +42,8 @@ Other:
 
 Providers: ${visibleProviders().map((p) => p.id).join(", ")}
 
-Config: ${configPath()}`);
+Config: ${configPath()}
+Diagnostics: ${debugLogPath()} (override with SNEEZE_LOG)`);
     process.exit(0);
 }
 function cmdStatus() {
@@ -210,6 +212,7 @@ async function cmdRun(task, cfg, resumeId) {
         onToolStart: (name, args) => console.log(`⚡ ${name} ${JSON.stringify(args).slice(0, 100)}`),
         onToolEnd: (name, result) => console.log(`  ↳ ${result.split("\n")[0].slice(0, 100)}`),
         onContent: (d) => process.stdout.write(d),
+        onCorruption: (_content, reason, provider, model) => console.error(`\n[rejected ${provider}/${model}: ${reason}; retrying]`),
     });
     console.log(`\n---\n${result.finalText}`);
     console.log(`\n(${result.iterations} iterations, ${result.toolCallsMade.length} tool calls)`);

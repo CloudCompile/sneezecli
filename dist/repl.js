@@ -41,6 +41,7 @@ async function agentTurn(state, task) {
     const events = {
         onModel: (p, m) => process.stdout.write(C.dim(`\n[${p}/${m}]\n`)),
         onContent: (d) => process.stdout.write(d),
+        onCorruption: (_content, reason, provider, model) => process.stdout.write(`\n[rejected ${provider}/${model}: ${reason}; retrying]\n`),
         onToolStart: (name, args) => process.stdout.write(C.cyan(`\n⚡ ${name} ${JSON.stringify(args).slice(0, 100)}\n`)),
         onToolEnd: (name, result) => {
             const oneLine = result.split("\n")[0].slice(0, 100);

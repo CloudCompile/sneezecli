@@ -693,7 +693,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
       for (let i = 1; i < lines; i++) process.stdout.write("\x1b[1A\x1b[2K");
       process.stdout.write("\r");
       console.log(c.red(`✗ rejected ${provider}/${model}: ${reason}`) + c.reset);
-      console.log(c.yellow("↻ retrying with a new model…") + c.reset);
+      console.log(c.yellow("↻ erased bad output; retrying with a new model…") + c.reset);
       streamed = "";
     },
     onToolStart: (name, args) =>

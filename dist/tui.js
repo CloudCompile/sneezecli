@@ -644,7 +644,7 @@ async function agentTurn(state, task, rl) {
                 process.stdout.write("\x1b[1A\x1b[2K");
             process.stdout.write("\r");
             console.log(c.red(`✗ rejected ${provider}/${model}: ${reason}`) + c.reset);
-            console.log(c.yellow("↻ retrying with a new model…") + c.reset);
+            console.log(c.yellow("↻ erased bad output; retrying with a new model…") + c.reset);
             streamed = "";
         },
         onToolStart: (name, args) => process.stdout.write(c.cyan(`\n⚡ ${name} `) + c.gray + truncate(JSON.stringify(args), 90) + c.reset + ` ${c.dim}(${elapsed(startedAt)})${c.reset}\n`),
