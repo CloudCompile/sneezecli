@@ -21,7 +21,7 @@ export interface AgentEvents {
   onToolStart?: (name: string, args: any) => void;
   onToolEnd?: (name: string, result: string) => void;
   onContent?: (delta: string) => void;
-  onCorruption?: (content: string, reason: string) => void;
+  onCorruption?: (content: string, reason: string, provider: string, model: string) => void;
   /** return true to approve a dangerous tool call in safe mode */
   confirm?: (tool: string, summary: string) => Promise<boolean>;
   /** abort signal forwarded to tools (bash kills its child on abort) */

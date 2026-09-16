@@ -132,6 +132,8 @@ export async function route(
         return { ...resp, entry, attempts };
       } catch (err: any) {
         attempts.push({ entry, error: err?.message ?? String(err) });
+        modelCursor.set(key, (start + gi + 1) % group.length);
+        saveCursor(modelCursor);
         continue;
       }
     }

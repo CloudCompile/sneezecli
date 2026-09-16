@@ -40,7 +40,7 @@ export interface ChatResponse {
 
 export interface StreamCallbacks {
   onContent?: (delta: string) => void;
-  onCorruption?: (content: string, reason: string) => void;
+  onCorruption?: (content: string, reason: string, provider: string, model: string) => void;
 }
 
 export class HttpError extends Error {
@@ -363,7 +363,7 @@ async function consumeStream(
           cb.onContent?.(d.content);
           if (content.length >= 60 && looksGarbled(content)) {
             const reason = "mixed scripts / statistically unlikely text";
-            cb.onCorruption?.(content, reason);
+            cb.onCorruption?.(content, reason, entry.provider, entry.model);
             throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
           }
         }

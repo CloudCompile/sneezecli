@@ -276,7 +276,7 @@ async function consumeStream(entry, req, res, cb) {
                     cb.onContent?.(d.content);
                     if (content.length >= 60 && looksGarbled(content)) {
                         const reason = "mixed scripts / statistically unlikely text";
-                        cb.onCorruption?.(content, reason);
+                        cb.onCorruption?.(content, reason, entry.provider, entry.model);
                         throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
                     }
                 }
@@ -317,16 +317,21 @@ async function consumeStream(entry, req, res, cb) {
 function looksGarbled(content) {
     if (content.trim().length < 60)
         return false;
-    const scripts = [
-        /[A-Za-z]/u,
-        /[\u0400-\u04ff]/u,
-        /[\u0370-\u03ff]/u,
-        /[\u0600-\u06ff]/u,
-        /[\u0900-\u097f]/u,
-        /[\u3040-\u30ff]/u,
-        /[\u4e00-\u9fff]/u,
-    ].filter((re) => re.test(content)).length;
-    return scripts >= 3;
+    const counts = [
+        /[A-Za-z]/gu,
+        /[\u0400-\u04ff]/gu,
+        /[\u0370-\u03ff]/gu,
+        /[\u0600-\u06ff]/gu,
+        /[\u0900-\u097f]/gu,
+        /[\u3040-\u30ff]/gu,
+        /[\u4e00-\u9fff]/gu,
+    ].map((re) => content.match(re)?.length ?? 0);
+    // A normal answer may quote another language. Require several substantial
+    // script fragments instead of rejecting any response containing one foreign
+    // word. This targets the random-token failure mode seen from bad endpoints.
+    const substantialScripts = counts.filter((n) => n >= 3).length;
+    const letters = counts.reduce((a, b) => a + b, 0);
+    return substantialScripts >= 3 && letters >= 24 && letters / content.length > 0.25;
 }
 /** Recover the simple XML-like tool format emitted by some OpenAI-compatible
  * free models instead of treating it as a successful final answer. */

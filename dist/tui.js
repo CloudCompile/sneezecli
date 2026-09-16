@@ -637,13 +637,13 @@ async function agentTurn(state, task, rl) {
             streamed += d;
             process.stdout.write(d);
         },
-        onCorruption: (_content, reason) => {
+        onCorruption: (_content, reason, provider, model) => {
             const lines = streamed.split("\n").length;
             process.stdout.write("\x1b[2K");
             for (let i = 1; i < lines; i++)
                 process.stdout.write("\x1b[1A\x1b[2K");
             process.stdout.write("\r");
-            console.log(c.red(`✗ rejected model output: ${reason}`) + c.reset);
+            console.log(c.red(`✗ rejected ${provider}/${model}: ${reason}`) + c.reset);
             console.log(c.yellow("↻ retrying with a new model…") + c.reset);
             streamed = "";
         },
