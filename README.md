@@ -1,6 +1,6 @@
 # harmony
 
-An interactive coding-agent harness for your terminal. `harmony` uses a maintained catalog of free providers and free models; provider API keys are access credentials, not Harmony charges. It can read, edit, search, and run commands in a repository
+An interactive coding-agent harness for your terminal. `harmony` uses a maintained catalog of free providers and free models. Provider API keys are access credentials, not Harmony charges: Harmony does not bill users or add a paid service layer. It can read, edit, search, and run commands in a repository
 using a single agent loop.
 
 ## Installation
@@ -107,6 +107,11 @@ pool; task-aware routing chooses the actual model.
 
 ## Providers and routing
 
+All providers currently included in Harmony's catalog are intended to expose
+free access paths. Free access can still have provider-side quotas such as RPM,
+RPD, token, or fair-use limits. Harmony's `usage` command reports request and
+token counters; it does not report monetary charges.
+
 The provider registry is deliberately closed and maintained by the project.
 Current providers are:
 
@@ -163,6 +168,9 @@ harmony telemetry disable
 Events are queued locally at `~/.config/harmony/telemetry.jsonl` and uploads are
 best-effort with a five-second timeout. The collector endpoint is deliberately
 not enabled by default; users must explicitly configure one.
+
+The former `SNEEZE_*` environment names remain accepted as compatibility
+aliases, but new configurations should use `HARMONY_*`.
 
 ### Agent runtime controls
 
@@ -274,8 +282,8 @@ Configuration and sessions are stored by default under:
 Override these locations when testing or isolating profiles:
 
 ```bash
-SNEEZE_CONFIG_DIR=./.harmony harmony
-SNEEZE_CONFIG=./test-config.json harmony status
+HARMONY_CONFIG_DIR=./.harmony harmony
+HARMONY_CONFIG=./test-config.json harmony status
 ```
 
 The configuration includes the model pool, maximum output tokens, context
@@ -319,9 +327,9 @@ The hidden mock provider can exercise the real agent and tools without API
 keys:
 
 ```bash
-SNEEZE_CONFIG=./test-pool.json \
-SNEEZE_MOCK=1 \
-SNEEZE_MOCK_SCRIPT=./mock-script.json \
+HARMONY_CONFIG=./test-pool.json \
+HARMONY_MOCK=1 \
+HARMONY_MOCK_SCRIPT=./mock-script.json \
 harmony run "audit the loop"
 ```
 
