@@ -10,6 +10,7 @@ import { debugLogPath } from "./debug-log.js";
 import { flushTelemetry, setTelemetry, telemetryStatus } from "./telemetry.js";
 import { startTui } from "./tui.js";
 import { verifyWorkspace } from "./verification.js";
+import { recordRun } from "./recording.js";
 
 const C = {
   dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
@@ -41,6 +42,7 @@ Pool management:
   harmony doctor                         Check runtime configuration
   harmony verify                         Run workspace verification checks
   harmony usage                          Free-provider quota usage
+  harmony runs                           Show recent run recordings
   harmony cost                           Alias for usage
   harmony telemetry status               Show anonymous telemetry status
   harmony telemetry enable               Enable local telemetry queueing
@@ -221,6 +223,7 @@ function cmdDoctor(): void {
 }
 
 async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<void> {
+  const startedAt = new Date().toISOString();
   const missing = new Set<string>();
   for (const m of cfg.models) {
     const def = PROVIDERS[m.provider];
@@ -237,6 +240,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
     console.error(`Session ${resumeId} not found or empty — starting fresh.`);
   }
   const result = await runAgent(task, cfg.models, cfg, cwd, history, {
+    onProgress: (event) => console.log(`[${event.phase}] ${event.message}`),
     onModel: (p, m) => console.log(`[${p}/${m}]`),
     onToolStart: (name, args) => console.log(`⚡ ${name} ${JSON.stringify(args).slice(0, 100)}`),
     onToolEnd: (name, result) => console.log(`  ↳ ${result.split("\n")[0].slice(0, 100)}`),
@@ -247,6 +251,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
   console.log(`\n---\n${result.finalText}`);
   console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
   if (result.verification) console.log(`verification: ${result.verificationPassed ? "passed" : "failed"}`);
+  recordRun(startedAt, task, cwd, result);
   if (result.status !== "completed" || result.verificationPassed === false) process.exitCode = result.status === "cancelled" ? 130 : 1;
 }
 
@@ -281,6 +286,21 @@ function cmdUsage(): void {
     reqs += u.requests; tin += u.tokensIn; tout += u.tokensOut;
   }
   console.log(`  ${"total".padEnd(40)} ${String(reqs).padStart(4)} req  ${tin} in  ${tout} out`);
+}
+
+async function cmdRuns(): Promise<void> {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { recordingPath } = await import("./recording.js");
+  const path = recordingPath();
+  if (!existsSync(path)) {
+    console.log("No recorded runs.");
+    return;
+  }
+  const rows = readFileSync(path, "utf8").trim().split("\n").filter(Boolean).slice(-20).reverse();
+  for (const line of rows) {
+    const run = JSON.parse(line);
+    console.log(`${run.id}  ${run.status.padEnd(14)} ${run.filesChanged} files  ${run.iterations} iterations  ${run.task.slice(0, 80)}`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -334,6 +354,9 @@ function cDim(s: string): string {
     case "cost":
     case "usage":
       cmdUsage();
+      break;
+    case "runs":
+      await cmdRuns();
       break;
     case "setup":
       cmdSetup();

@@ -55,6 +55,12 @@ function normalizeModelId(value) {
 export function allMetadata() {
     return loadMetadata().models;
 }
+export function codingScore(entry) {
+    const metadata = metadataFor(entry);
+    const catalog = CATALOG.find((m) => m.provider === entry.provider && m.model === entry.model);
+    const codeTag = metadata.tags?.includes("code") || catalog?.tags?.includes("code");
+    return (metadata.coding ?? 0) * 0.5 + (metadata.capability ?? 0) * 0.2 + (codeTag ? 30 : 0) + (metadata.supportsTools === true ? 20 : 0);
+}
 function numberValue(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;

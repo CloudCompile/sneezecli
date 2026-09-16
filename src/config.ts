@@ -34,6 +34,8 @@ export interface Config {
   verify?: boolean;
   /** maximum verification-driven repair cycles (default 2) */
   maxRepairIterations?: number;
+  /** require a short planning turn before repository changes (default false) */
+  planning?: boolean;
 }
 
 function configDir(): string {
@@ -71,6 +73,7 @@ export function defaultConfig(): Config {
     maxTokens: 4096,
     maxContextMessages: 40,
     yolo: false,
+    planning: true,
     systemPrompt:
       "You are harmony, a capable coding agent working in the user's repository. " +
       "Use the provided tools to read, explore, edit, and run code. " +

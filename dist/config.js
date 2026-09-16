@@ -33,6 +33,7 @@ export function defaultConfig() {
         maxTokens: 4096,
         maxContextMessages: 40,
         yolo: false,
+        planning: true,
         systemPrompt: "You are harmony, a capable coding agent working in the user's repository. " +
             "Use the provided tools to read, explore, edit, and run code. " +
             "Prefer precise edit_file operations over rewriting whole files. " +

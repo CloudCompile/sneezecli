@@ -20,9 +20,17 @@ export interface AgentResult {
   verification?: VerificationResult;
   toolCallsMade: { name: string; args: any; result: string }[];
   messages: ChatMessage[];
+  plan?: AgentPlan;
+}
+
+export interface AgentPlan {
+  objective: string;
+  steps: string[];
+  verification: string[];
 }
 
 export interface AgentEvents {
+  onProgress?: (event: { phase: "planning" | "executing" | "verifying" | "repairing" | "completed" | "failed"; message: string; iteration: number }) => void;
   onModel?: (provider: string, model: string) => void;
   onToolStart?: (name: string, args: any) => void;
   onToolEnd?: (name: string, result: string) => void;
@@ -62,8 +70,20 @@ export async function runAgent(
   const tools = toolDefs();
   let selectedModel: ModelEntry | undefined;
 
+  let plan: AgentPlan | undefined;
+  if (cfg.planning === true && !history.some((m) => m.role === "system" && m.content.includes("HARMONY_PLAN"))) {
+    events.onProgress?.({ phase: "planning", message: "Creating an implementation plan", iteration: 0 });
+    messages.push({ role: "system", content: "HARMONY_PLAN: Before making changes, briefly state the objective, 1-5 implementation steps, and verification commands. Do not edit files in the planning response." });
+    const planResp = await route({ messages, maxTokens: Math.min(cfg.maxTokens ?? 4096, 800), temperature: 0.2, topP: 0.9, timeoutMs: Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000) }, pool, { onCorruption: events.onCorruption }, userTask);
+    selectedModel = planResp.entry;
+    plan = parsePlan(planResp.content, userTask);
+    messages.push({ role: "assistant", content: planResp.content });
+    messages.push({ role: "user", content: `Plan accepted. Execute it now using tools. Do not merely describe changes. Objective: ${plan.objective}\nSteps:\n${plan.steps.map((s, n) => `${n + 1}. ${s}`).join("\n")}\nVerification:\n${plan.verification.join("\n")}` });
+  }
+
   const maxIter = cfg.maxIterations ?? 40;
   for (let i = 0; i < maxIter; i++) {
+    events.onProgress?.({ phase: "executing", message: "Selecting next action", iteration: i + 1 });
     if (events.isAborted?.() || events.abortSignal?.aborted) {
       const result: AgentResult = { finalText: "(cancelled)", status: "cancelled", iterations: i, filesChanged, toolCallsMade, messages };
       events.onTurnEnd?.(result);
@@ -98,15 +118,18 @@ export async function runAgent(
       }
       messages.push({ role: "assistant", content: resp.content });
       const verification = filesChanged > 0 && cfg.verify !== false ? await verifyWorkspace(cwd, events.abortSignal) : undefined;
+      if (verification) events.onProgress?.({ phase: "verifying", message: "Running workspace verification", iteration: i + 1 });
       if (verification) events.onVerification?.(verification);
       if (verification && !verification.passed && repairIterations < (cfg.maxRepairIterations ?? 2)) {
         repairIterations++;
+        events.onProgress?.({ phase: "repairing", message: `Verification failed; repair cycle ${repairIterations}`, iteration: i + 1 });
         messages.push({ role: "user", content: verificationPrompt(verification) });
         continue;
       }
       const qualityFailed = empty || (requiresTool && toolCallsMade.length === 0);
-      const result: AgentResult = { finalText: qualityFailed ? "Unable to produce a valid task result." : resp.content, status: qualityFailed || verification?.passed === false ? "failed" : "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
+      const result: AgentResult = { finalText: qualityFailed ? "Unable to produce a valid task result." : resp.content, status: qualityFailed || verification?.passed === false ? "failed" : "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages, plan };
       events.onTurnEnd?.(result);
+      events.onProgress?.({ phase: result.status === "completed" ? "completed" : "failed", message: result.finalText, iteration: i + 1 });
       return result;
     }
 
@@ -172,9 +195,17 @@ export async function runAgent(
     filesChanged,
     toolCallsMade,
     messages,
+    plan,
   };
   events.onTurnEnd?.(result);
   return result;
+}
+
+function parsePlan(text: string, fallback: string): AgentPlan {
+  const lines = text.split("\n").map((line) => line.replace(/^\s*[-*\d.)]+\s*/, "").trim()).filter(Boolean);
+  const verification = lines.filter((line) => /\b(test|check|build|lint|verify|command|npm|pytest|cargo|go test)\b/i.test(line)).slice(-3);
+  const steps = lines.filter((line) => !verification.includes(line)).slice(0, 5);
+  return { objective: lines[0] ?? fallback, steps: steps.length > 0 ? steps : [fallback], verification: verification.length > 0 ? verification : ["Run the project's available verification checks"] };
 }
 
 function verificationPrompt(result: VerificationResult): string {

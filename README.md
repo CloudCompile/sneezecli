@@ -184,6 +184,13 @@ One-shot runs report an explicit lifecycle status—`completed`, `cancelled`, or
 Permanent model errors such as HTTP 404 and 410 are quarantined separately from
 transient failures.
 
+New configurations enable a planning turn before execution. The plan records
+the objective, implementation steps, and verification guidance; set
+`planning: false` for low-latency runs. During execution, Harmony emits
+structured planning, execution, verification, repair, and completion progress.
+For coding tasks, routing gives additional weight to models with coding and
+tool-use metadata rather than relying only on general model scores.
+
 After a mutating agent turn, Harmony automatically runs `git diff --check` and
 the first available project script from `test`, `check`, `build`, or `lint`.
 If a check fails, the failure output is sent back to the model for up to two
@@ -196,6 +203,12 @@ the repair limit with `maxRepairIterations`.
 verification, failed quality gates, and max-iteration runs return `1`; a user
 cancellation returns `130`. File tools reject paths outside the workspace,
 including symlink escapes.
+
+Runs are recorded as secret-free summaries in
+`~/.config/harmony/recordings.jsonl` (override with `HARMONY_RECORDINGS`) and
+can be viewed with `harmony runs`. Recordings contain status and bounded
+metrics, not prompts, model responses, API keys, or tool arguments. Run the
+deterministic task benchmark with `npm run benchmark:tasks`.
 
 ### Model metadata sources
 

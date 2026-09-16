@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { checkBudget, chat, type ChatRequest, type ChatResponse, type StreamCallbacks } from "./llm.js";
-import { metadataFor, scoreModel } from "./model-data.js";
+import { metadataFor, scoreModel, codingScore } from "./model-data.js";
 import { debugLog } from "./debug-log.js";
 import { healthCheck, recordHealthFailure, recordHealthSuccess } from "./health.js";
 import { capabilitiesFor } from "./catalog.js";
@@ -75,7 +75,12 @@ export async function route(
     ? pool.filter((entry) => capabilitiesFor(entry.provider, entry.model).tools === "yes" || metadataFor(entry).supportsTools === true)
     : pool;
   const candidates = toolCapable.length > 0 ? toolCapable : pool;
-  const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
+  const codingTask = /\b(fix|implement|add|change|edit|refactor|debug|test|build|code|file|repository|repo)\b/i.test(task);
+  const ranked = [...candidates].sort((a, b) => {
+    const aScore = scoreModel(a, task) + (codingTask ? codingScore(a) : 0);
+    const bScore = scoreModel(b, task) + (codingTask ? codingScore(b) : 0);
+    return bScore - aScore;
+  });
   // Keep one model for the whole agent turn whenever possible. Switching
   // models between tool calls loses provider-specific formatting and context
   // discipline, which is especially damaging on small/free models.
