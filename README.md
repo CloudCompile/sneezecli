@@ -120,7 +120,6 @@ Current providers are:
 | `requesty` | Account-wide daily limit |
 | `logfare` | Account-wide RPM limit |
 | `pollinations` | Keyed, per-model limits |
-| `ollama` | Local models through `ollama serve`; no API key required |
 
 Routing is model-first rather than provider-tier-first. Each request is ranked
 using the model's capability, coding, arena-preference, speed, latency, and
@@ -253,18 +252,10 @@ Or use the dispatcher:
 ```
 
 Each session is saved as a `*.typescript` terminal recording under
-`.agent-recordings/` (override the directory with
-`HARMONY_AGENT_RECORD_DIR=/path/to/records`). OpenCode and Codex use the local
-Ollama model `hf.co/LiquidAI/LFM2.5-230M-GGUF:latest` by default. Override it with
-`OPENCODE_LOCAL_MODEL` or `CODEX_LOCAL_MODEL`. Claude Code requires an
-Anthropic-compatible endpoint and credentials; Ollama's OpenAI-compatible API
-cannot be used directly by Claude Code.
-
-For a small local smoke test, install Ollama and pull the model:
-
-```bash
-ollama pull qwen2.5-coder:1.5b
-```
+.agent-recordings/` (override the directory with
+`HARMONY_AGENT_RECORD_DIR=/path/to/records`). OpenCode and Codex can be
+configured with their own model providers. Claude Code requires an
+Anthropic-compatible endpoint and credentials.
 
 ## Development and mock mode
 

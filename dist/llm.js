@@ -230,6 +230,9 @@ export async function chat(entry, req, cb) {
         recordRequest(entry, tokensIn, tokensOut);
         const content = choice.content ?? "";
         const toolCalls = choice.tool_calls?.length ? choice.tool_calls : parseEmbeddedToolCalls(content);
+        if (toolCalls.length === 0 && looksGarbled(content)) {
+            throw new Error(`${def.name}: model returned likely corrupted text`);
+        }
         return {
             content,
             toolCalls,
@@ -271,6 +274,11 @@ async function consumeStream(entry, req, res, cb) {
                     content += d.content;
                     tokensOut += Math.ceil(d.content.length / 4);
                     cb.onContent?.(d.content);
+                    if (content.length >= 60 && looksGarbled(content)) {
+                        const reason = "mixed scripts / statistically unlikely text";
+                        cb.onCorruption?.(content, reason);
+                        throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
+                    }
                 }
                 if (Array.isArray(d.tool_calls)) {
                     for (const t of d.tool_calls) {
@@ -301,7 +309,24 @@ async function consumeStream(entry, req, res, cb) {
     }));
     if (toolCalls.length === 0)
         toolCalls = parseEmbeddedToolCalls(content);
+    if (toolCalls.length === 0 && looksGarbled(content)) {
+        throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
+    }
     return { content, toolCalls };
+}
+function looksGarbled(content) {
+    if (content.trim().length < 60)
+        return false;
+    const scripts = [
+        /[A-Za-z]/u,
+        /[\u0400-\u04ff]/u,
+        /[\u0370-\u03ff]/u,
+        /[\u0600-\u06ff]/u,
+        /[\u0900-\u097f]/u,
+        /[\u3040-\u30ff]/u,
+        /[\u4e00-\u9fff]/u,
+    ].filter((re) => re.test(content)).length;
+    return scripts >= 3;
 }
 /** Recover the simple XML-like tool format emitted by some OpenAI-compatible
  * free models instead of treating it as a successful final answer. */

@@ -63,6 +63,7 @@ export async function route(
   preferred?: ModelEntry
 ): Promise<RouteResult> {
   const attempts: RouteAttempt[] = [];
+  let providerAttempts = 0;
   // Tiny local smoke-test models can answer text but may ignore the tool
   // protocol. Do not let one of them win a coding-agent turn when a capable
   // configured provider is available. If it is the only configured model,
@@ -97,6 +98,12 @@ export async function route(
 
     for (let gi = 0; gi < rotated.length; gi++) {
       const entry = rotated[gi];
+      if (providerAttempts++ >= 12) {
+        throw new Error(
+          `Stopped after 12 provider attempts; no reliable model responded.\n` +
+          attempts.map((a) => `  - ${a.entry.provider}/${a.entry.model}: ${a.error ?? "ok"}`).join("\n")
+        );
+      }
 
       // wait out 429 cooldowns instead of immediately degrading capability
       let waited = false;

@@ -40,6 +40,7 @@ export interface ChatResponse {
 
 export interface StreamCallbacks {
   onContent?: (delta: string) => void;
+  onCorruption?: (content: string, reason: string) => void;
 }
 
 export class HttpError extends Error {
@@ -306,6 +307,9 @@ export async function chat(
     recordRequest(entry, tokensIn, tokensOut);
     const content = choice.content ?? "";
     const toolCalls = choice.tool_calls?.length ? choice.tool_calls : parseEmbeddedToolCalls(content);
+    if (toolCalls.length === 0 && looksGarbled(content)) {
+      throw new Error(`${def.name}: model returned likely corrupted text`);
+    }
     return {
       content,
       toolCalls,
@@ -357,6 +361,11 @@ async function consumeStream(
           content += d.content;
           tokensOut += Math.ceil(d.content.length / 4);
           cb.onContent?.(d.content);
+          if (content.length >= 60 && looksGarbled(content)) {
+            const reason = "mixed scripts / statistically unlikely text";
+            cb.onCorruption?.(content, reason);
+            throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
+          }
         }
         if (Array.isArray(d.tool_calls)) {
           for (const t of d.tool_calls) {
@@ -383,7 +392,29 @@ async function consumeStream(
       function: { name: acc.name, arguments: acc.args },
     }));
   if (toolCalls.length === 0) toolCalls = parseEmbeddedToolCalls(content);
+  if (toolCalls.length === 0 && looksGarbled(content)) {
+    throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
+  }
   return { content, toolCalls };
+}
+
+function looksGarbled(content: string): boolean {
+  if (content.trim().length < 60) return false;
+  const counts = [
+    /[A-Za-z]/gu,
+    /[\u0400-\u04ff]/gu,
+    /[\u0370-\u03ff]/gu,
+    /[\u0600-\u06ff]/gu,
+    /[\u0900-\u097f]/gu,
+    /[\u3040-\u30ff]/gu,
+    /[\u4e00-\u9fff]/gu,
+  ].map((re) => content.match(re)?.length ?? 0);
+  // A normal answer may quote another language. Require several substantial
+  // script fragments instead of rejecting any response containing one foreign
+  // word. This targets the random-token failure mode seen from bad endpoints.
+  const substantialScripts = counts.filter((n) => n >= 3).length;
+  const letters = counts.reduce((a, b) => a + b, 0);
+  return substantialScripts >= 3 && letters >= 24 && letters / content.length > 0.25;
 }
 
 /** Recover the simple XML-like tool format emitted by some OpenAI-compatible

@@ -19,7 +19,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
         if (events.isAborted?.()) {
             throw new AgentAborted();
         }
-        const resp = await route({ messages, tools, maxTokens: cfg.maxTokens }, pool, { onContent: events.onContent }, userTask, selectedModel);
+        const resp = await route({ messages, tools, maxTokens: cfg.maxTokens }, pool, { onContent: events.onContent, onCorruption: events.onCorruption }, userTask, selectedModel);
         selectedModel = resp.entry;
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {

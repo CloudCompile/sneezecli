@@ -6,8 +6,6 @@
 // tags: capability hints used by `harmony models` filtering and routing
 // ctx: context window in tokens (informational)
 export const CATALOG = [
-    // ── Local Ollama smoke-test model ──
-    { provider: "ollama", model: "hf.co/LiquidAI/LFM2.5-230M-GGUF:latest", ctx: 32_768, tier: 1, supportsTools: false, tags: ["fast", "local"] },
     // ── OpenRouter (tier 1 — 50 rpd account-wide, spend on hardest tasks) ──
     { provider: "openrouter", model: "thinkingmachines/inkling-small:free", rpm: 20, ctx: 1_000_000, tier: 1, tags: ["reasoning"] },
     { provider: "openrouter", model: "thinkingmachines/inkling:free", rpm: 20, ctx: 1_000_000, tier: 1, tags: ["reasoning"] },

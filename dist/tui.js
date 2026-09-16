@@ -473,9 +473,6 @@ async function configureProvider(state, rl, prov) {
     state.cfg.models = state.pool;
     saveConfig(state.cfg);
     console.log(c.green(`✓ configured ${def.name}: added ${added} compatible models`) + c.reset);
-    if (prov === "ollama") {
-        console.log(c.gray("  Tip: add another installed model with `harmony add ollama <model>`; see `ollama list`.") + c.reset);
-    }
 }
 async function readSecret(prompt) {
     return new Promise((resolve) => {
@@ -612,6 +609,7 @@ async function agentTurn(state, task, rl) {
     state.abort = new AbortController();
     let aborted = false;
     const startedAt = Date.now();
+    let streamed = "";
     state.abort.signal.addEventListener("abort", () => {
         aborted = true;
     });
@@ -635,7 +633,20 @@ async function agentTurn(state, task, rl) {
             state.lastModel = `${p}/${m}`;
             process.stdout.write(c.gray(`\n  ◦ model ${p}/${m} · ${elapsed(startedAt)}`) + c.reset + "\n");
         },
-        onContent: (d) => process.stdout.write(d),
+        onContent: (d) => {
+            streamed += d;
+            process.stdout.write(d);
+        },
+        onCorruption: (_content, reason) => {
+            const lines = streamed.split("\n").length;
+            process.stdout.write("\x1b[2K");
+            for (let i = 1; i < lines; i++)
+                process.stdout.write("\x1b[1A\x1b[2K");
+            process.stdout.write("\r");
+            console.log(c.red(`✗ rejected model output: ${reason}`) + c.reset);
+            console.log(c.yellow("↻ retrying with a new model…") + c.reset);
+            streamed = "";
+        },
         onToolStart: (name, args) => process.stdout.write(c.cyan(`\n⚡ ${name} `) + c.gray + truncate(JSON.stringify(args), 90) + c.reset + ` ${c.dim}(${elapsed(startedAt)})${c.reset}\n`),
         onToolEnd: (name, result) => {
             const first = result.split("\n")[0];
