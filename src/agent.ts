@@ -12,7 +12,10 @@ export class AgentAborted extends Error {
 
 export interface AgentResult {
   finalText: string;
+  status: "completed" | "failed" | "cancelled" | "max_iterations";
   iterations: number;
+  filesChanged: number;
+  verificationPassed?: boolean;
   toolCallsMade: { name: string; args: any; result: string }[];
   messages: ChatMessage[];
 }
@@ -29,6 +32,7 @@ export interface AgentEvents {
   abortSignal?: AbortSignal;
   /** called to check if the run was aborted (e.g. Esc pressed) */
   isAborted?: () => boolean;
+  onTurnEnd?: (result: AgentResult) => void;
 }
 
 export async function runAgent(
@@ -40,6 +44,7 @@ export async function runAgent(
   events: AgentEvents = {}
 ): Promise<AgentResult> {
   const toolCallsMade: AgentResult["toolCallsMade"] = [];
+  let filesChanged = 0;
 
   const messages: ChatMessage[] = [...history];
   if (messages.length === 0 && cfg.systemPrompt) {
@@ -53,7 +58,9 @@ export async function runAgent(
 
   const maxIter = cfg.maxIterations ?? 40;
   for (let i = 0; i < maxIter; i++) {
-    if (events.isAborted?.()) {
+    if (events.isAborted?.() || events.abortSignal?.aborted) {
+      const result: AgentResult = { finalText: "(cancelled)", status: "cancelled", iterations: i, filesChanged, toolCallsMade, messages };
+      events.onTurnEnd?.(result);
       throw new AgentAborted();
     }
     const resp = await route(
@@ -76,7 +83,9 @@ export async function runAgent(
 
     if (resp.toolCalls.length === 0) {
       messages.push({ role: "assistant", content: resp.content });
-      return { finalText: resp.content, iterations: i + 1, toolCallsMade, messages };
+      const result: AgentResult = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, toolCallsMade, messages };
+      events.onTurnEnd?.(result);
+      return result;
     }
 
     messages.push({
@@ -86,9 +95,7 @@ export async function runAgent(
     });
 
     for (const tc of resp.toolCalls as ToolCall[]) {
-      if (events.isAborted?.()) {
-        throw new AgentAborted();
-      }
+      if (events.isAborted?.() || events.abortSignal?.aborted) throw new AgentAborted();
       let args: any = {};
       try {
         args = JSON.parse(tc.function.arguments || "{}");
@@ -118,6 +125,7 @@ export async function runAgent(
         signal: events.abortSignal,
       });
       toolCallsMade.push({ name: tc.function.name, args, result });
+      if (["write_file", "edit_file", "patch_file", "delete_file"].includes(tc.function.name)) filesChanged++;
       events.onToolEnd?.(tc.function.name, result);
       debugLog("tool.end", { name: tc.function.name, chars: result.length });
       messages.push({ role: "tool", tool_call_id: tc.id, content: result });
@@ -126,12 +134,16 @@ export async function runAgent(
     trimContext(messages, cfg.maxContextMessages ?? 40);
   }
 
-  return {
+  const result: AgentResult = {
     finalText: "(max iterations reached without final answer)",
+    status: "max_iterations",
     iterations: maxIter,
+    filesChanged,
     toolCallsMade,
     messages,
   };
+  events.onTurnEnd?.(result);
+  return result;
 }
 
 function summarize(name: string, args: any): string {
@@ -160,9 +172,17 @@ function trimContext(messages: ChatMessage[], max: number): void {
   const rest = hasSystem ? messages.slice(1) : messages;
   const overflow = rest.length - (max - (hasSystem ? 1 : 0));
   if (overflow <= 0) return;
-  const kept = rest.slice(overflow);
-  // never start mid tool-exchange: drop until we hit a user message
-  while (kept.length > 0 && kept[0].role === "tool") kept.shift();
+  let kept = rest.slice(overflow);
+  // Preserve complete assistant tool-call + tool-result exchanges. If the
+  // boundary lands inside one, discard that incomplete exchange.
+  while (kept.length > 0 && kept[0].role !== "user" && kept[0].role !== "assistant") kept.shift();
+  if (kept[0]?.role === "assistant" && kept[0].tool_calls) {
+    const ids = new Set(kept[0].tool_calls.map((c) => c.id));
+    let end = 1;
+    while (end < kept.length && kept[end].role === "tool" && ids.has(kept[end].tool_call_id ?? "")) end++;
+    const complete = [...ids].every((id) => kept.slice(1, end).some((m) => m.tool_call_id === id));
+    if (!complete) kept = kept.slice(end);
+  }
   messages.length = 0;
   if (system) messages.push(system);
   messages.push(...kept);

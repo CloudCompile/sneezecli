@@ -33,6 +33,7 @@ Pool management:
   harmony remove <index>
   harmony pool                           Show model pool
   harmony status                         Rate-limit / budget state
+  harmony doctor                         Check runtime configuration
   harmony cost                           Session token/request usage
   harmony telemetry status               Show anonymous telemetry status
   harmony telemetry enable               Enable local telemetry queueing
@@ -195,6 +196,17 @@ function cmdSetup() {
     console.log(`   harmony run "task"`);
     console.log(`\nConfig: ${configPath()}`);
 }
+function cmdDoctor() {
+    const cfg = loadConfig();
+    const missing = cfg.models.filter((m) => !PROVIDERS[m.provider].keyless && !process.env[PROVIDERS[m.provider].keyEnv] && !cfg.apiKeys?.[m.provider]);
+    console.log("harmony doctor\n");
+    console.log(`Node: ${process.version}`);
+    console.log(`Config: ${configPath()}`);
+    console.log(`Models: ${cfg.models.length}`);
+    console.log(`Missing keys: ${missing.length}`);
+    console.log(`Diagnostics: ${debugLogPath()}`);
+    console.log(missing.length === 0 ? "\n✓ configuration looks usable" : "\n✗ some configured providers have missing keys");
+}
 async function cmdRun(task, cfg, resumeId) {
     const missing = new Set();
     for (const m of cfg.models) {
@@ -220,7 +232,7 @@ async function cmdRun(task, cfg, resumeId) {
         onCorruption: (_content, reason, provider, model) => console.error(`\n[rejected ${provider}/${model}: ${reason}; retrying]`),
     });
     console.log(`\n---\n${result.finalText}`);
-    console.log(`\n(${result.iterations} iterations, ${result.toolCallsMade.length} tool calls)`);
+    console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
 }
 function applyRunFlags(args, cfg) {
     const yolo = args.includes("--yolo");
@@ -344,6 +356,9 @@ async function main() {
             break;
         case "status":
             cmdStatus();
+            break;
+        case "doctor":
+            cmdDoctor();
             break;
         case "run":
         case "-p": {

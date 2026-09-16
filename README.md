@@ -165,6 +165,19 @@ harmony telemetry disable
 Events are queued locally at `~/.config/harmony/telemetry.jsonl` and uploads are
 best-effort with a five-second timeout. The collector endpoint is deliberately
 not enabled by default; users must explicitly configure one.
+
+### Agent runtime controls
+
+Use `harmony doctor` to inspect the configured pool, runtime, and missing
+provider keys. Tool output is bounded, shell commands can be cancelled, and
+the shell timeout can be configured with `SNEEZE_TOOL_TIMEOUT_MS` (default 60
+seconds). Model requests use `SNEEZE_TIMEOUT_MS` (default 10 seconds).
+
+One-shot runs report an explicit lifecycle status—`completed`, `cancelled`, or
+`max_iterations`—along with iteration, tool-call, and file-change counts.
+Permanent model errors such as HTTP 404 and 410 are quarantined separately from
+transient failures.
+
 ### Model metadata sources
 
 The metadata sync layer accepts normalized JSON from the two initial sources:

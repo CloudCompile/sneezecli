@@ -37,6 +37,7 @@ Pool management:
   harmony remove <index>
   harmony pool                           Show model pool
   harmony status                         Rate-limit / budget state
+  harmony doctor                         Check runtime configuration
   harmony cost                           Session token/request usage
   harmony telemetry status               Show anonymous telemetry status
   harmony telemetry enable               Enable local telemetry queueing
@@ -204,6 +205,18 @@ function cmdSetup(): void {
   console.log(`\nConfig: ${configPath()}`);
 }
 
+function cmdDoctor(): void {
+  const cfg = loadConfig();
+  const missing = cfg.models.filter((m) => !PROVIDERS[m.provider].keyless && !process.env[PROVIDERS[m.provider].keyEnv] && !cfg.apiKeys?.[m.provider]);
+  console.log("harmony doctor\n");
+  console.log(`Node: ${process.version}`);
+  console.log(`Config: ${configPath()}`);
+  console.log(`Models: ${cfg.models.length}`);
+  console.log(`Missing keys: ${missing.length}`);
+  console.log(`Diagnostics: ${debugLogPath()}`);
+  console.log(missing.length === 0 ? "\n✓ configuration looks usable" : "\n✗ some configured providers have missing keys");
+}
+
 async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<void> {
   const missing = new Set<string>();
   for (const m of cfg.models) {
@@ -229,7 +242,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
       console.error(`\n[rejected ${provider}/${model}: ${reason}; retrying]`),
   });
   console.log(`\n---\n${result.finalText}`);
-  console.log(`\n(${result.iterations} iterations, ${result.toolCallsMade.length} tool calls)`);
+  console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
 }
 
 function applyRunFlags(args: string[], cfg: Config): { task: string; resumeId?: string } {
@@ -353,6 +366,9 @@ function cDim(s: string): string {
       break;
     case "status":
       cmdStatus();
+      break;
+    case "doctor":
+      cmdDoctor();
       break;
     case "run":
     case "-p": {

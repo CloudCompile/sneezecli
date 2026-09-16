@@ -18,6 +18,7 @@
     "test:tool-parser": "npm run build && node scripts/test-tool-parser.mjs",
     "test:fake-stream": "npm run build && node scripts/test-fake-stream.mjs",
     "test:telemetry": "npm run build && node scripts/test-telemetry.mjs",
+    "test:agent-runtime": "npm run build && node scripts/test-agent-runtime.mjs",
     "benchmark:report": "npm run build && node scripts/benchmark-report.mjs",
     "prepublishOnly": "npm run build"
   },

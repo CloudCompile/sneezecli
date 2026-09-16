@@ -8,6 +8,7 @@ export class AgentAborted extends Error {
 }
 export async function runAgent(userTask, pool, cfg, cwd, history = [], events = {}) {
     const toolCallsMade = [];
+    let filesChanged = 0;
     const messages = [...history];
     if (messages.length === 0 && cfg.systemPrompt) {
         messages.push({ role: "system", content: cfg.systemPrompt });
@@ -18,7 +19,9 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
     let selectedModel;
     const maxIter = cfg.maxIterations ?? 40;
     for (let i = 0; i < maxIter; i++) {
-        if (events.isAborted?.()) {
+        if (events.isAborted?.() || events.abortSignal?.aborted) {
+            const result = { finalText: "(cancelled)", status: "cancelled", iterations: i, filesChanged, toolCallsMade, messages };
+            events.onTurnEnd?.(result);
             throw new AgentAborted();
         }
         const resp = await route({
@@ -34,7 +37,9 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {
             messages.push({ role: "assistant", content: resp.content });
-            return { finalText: resp.content, iterations: i + 1, toolCallsMade, messages };
+            const result = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, toolCallsMade, messages };
+            events.onTurnEnd?.(result);
+            return result;
         }
         messages.push({
             role: "assistant",
@@ -42,9 +47,8 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
             tool_calls: resp.toolCalls,
         });
         for (const tc of resp.toolCalls) {
-            if (events.isAborted?.()) {
+            if (events.isAborted?.() || events.abortSignal?.aborted)
                 throw new AgentAborted();
-            }
             let args = {};
             try {
                 args = JSON.parse(tc.function.arguments || "{}");
@@ -73,18 +77,24 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
                 signal: events.abortSignal,
             });
             toolCallsMade.push({ name: tc.function.name, args, result });
+            if (["write_file", "edit_file", "patch_file", "delete_file"].includes(tc.function.name))
+                filesChanged++;
             events.onToolEnd?.(tc.function.name, result);
             debugLog("tool.end", { name: tc.function.name, chars: result.length });
             messages.push({ role: "tool", tool_call_id: tc.id, content: result });
         }
         trimContext(messages, cfg.maxContextMessages ?? 40);
     }
-    return {
+    const result = {
         finalText: "(max iterations reached without final answer)",
+        status: "max_iterations",
         iterations: maxIter,
+        filesChanged,
         toolCallsMade,
         messages,
     };
+    events.onTurnEnd?.(result);
+    return result;
 }
 function summarize(name, args) {
     switch (name) {
@@ -113,10 +123,20 @@ function trimContext(messages, max) {
     const overflow = rest.length - (max - (hasSystem ? 1 : 0));
     if (overflow <= 0)
         return;
-    const kept = rest.slice(overflow);
-    // never start mid tool-exchange: drop until we hit a user message
-    while (kept.length > 0 && kept[0].role === "tool")
+    let kept = rest.slice(overflow);
+    // Preserve complete assistant tool-call + tool-result exchanges. If the
+    // boundary lands inside one, discard that incomplete exchange.
+    while (kept.length > 0 && kept[0].role !== "user" && kept[0].role !== "assistant")
         kept.shift();
+    if (kept[0]?.role === "assistant" && kept[0].tool_calls) {
+        const ids = new Set(kept[0].tool_calls.map((c) => c.id));
+        let end = 1;
+        while (end < kept.length && kept[end].role === "tool" && ids.has(kept[end].tool_call_id ?? ""))
+            end++;
+        const complete = [...ids].every((id) => kept.slice(1, end).some((m) => m.tool_call_id === id));
+        if (!complete)
+            kept = kept.slice(end);
+    }
     messages.length = 0;
     if (system)
         messages.push(system);

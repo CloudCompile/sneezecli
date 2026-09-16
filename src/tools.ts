@@ -23,6 +23,7 @@ export interface ToolImpl {
 }
 
 const MAX_OUTPUT = 20_000;
+const SHELL_TIMEOUT = Number(process.env.SNEEZE_TOOL_TIMEOUT_MS ?? 60_000);
 
 function truncate(s: string): string {
   if (s.length <= MAX_OUTPUT) return s;
@@ -222,7 +223,7 @@ export const TOOLS: ToolImpl[] = [
       function: {
         name: "bash",
         description:
-          "Run a shell command in cwd and return combined output. 60s timeout. Use for builds, tests, git.",
+          "Run a shell command in cwd and return combined output. Configurable timeout. Use for builds, tests, git.",
         parameters: {
           type: "object",
           properties: { command: { type: "string" } },
@@ -235,7 +236,7 @@ export const TOOLS: ToolImpl[] = [
       return await new Promise<string>((resolve) => {
         const child = exec(
           args.command,
-          { cwd: ctx.cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, timeout: 60_000, killSignal: "SIGKILL" },
+          { cwd: ctx.cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, timeout: SHELL_TIMEOUT, killSignal: "SIGKILL" },
           (err, stdout, stderr) => {
             if (err && err.killed) return resolve("ABORTED");
             if (err) {
@@ -369,9 +370,12 @@ export function isDangerous(name: string): boolean {
 export async function runTool(name: string, args: any, ctx: ToolContext): Promise<string> {
   const tool = TOOLS.find((t) => t.def.function.name === name);
   if (!tool) return `ERROR: unknown tool ${name}`;
+  if (ctx.signal?.aborted) return "ABORTED: tool execution cancelled";
   try {
-    return await tool.run(args, ctx);
+    const result = await tool.run(args, ctx);
+    return truncate(result);
   } catch (err: any) {
-    return `ERROR: ${err?.message ?? String(err)}`;
+    if (ctx.signal?.aborted) return "ABORTED: tool execution cancelled";
+    return truncate(`ERROR: ${err?.message ?? String(err)}`);
   }
 }

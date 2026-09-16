@@ -144,7 +144,9 @@ export async function route(
       } catch (err: any) {
         attempts.push({ entry, error: err?.message ?? String(err) });
         debugLog("route.fail", { provider: entry.provider, model: entry.model, error: err?.message ?? String(err) });
-        const health = recordHealthFailure(entry, err?.message ?? String(err));
+        const status = typeof err?.status === "number" ? err.status : undefined;
+        const permanent = status === 404 || status === 410;
+        const health = recordHealthFailure(entry, err?.message ?? String(err), permanent);
         debugLog("route.health", { provider: entry.provider, model: entry.model, failures: health.failures, quarantineUntil: health.quarantineUntil });
         modelCursor.set(key, (start + gi + 1) % group.length);
         saveCursor(modelCursor);

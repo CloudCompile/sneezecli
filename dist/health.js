@@ -29,11 +29,13 @@ export function healthCheck(entry) {
     }
     return { ok: true };
 }
-export function recordHealthFailure(entry, error) {
+export function recordHealthFailure(entry, error, permanent = false) {
     const old = healthOf(entry);
     const failures = old.failures + 1;
     // Quarantine after repeated failures; duration grows to 30 minutes.
-    const quarantineUntil = failures >= 3 ? Date.now() + Math.min(30 * 60_000, 10_000 * 2 ** Math.min(failures - 3, 7)) : undefined;
+    const quarantineUntil = permanent
+        ? Date.now() + 24 * 60 * 60_000
+        : failures >= 3 ? Date.now() + Math.min(30 * 60_000, 10_000 * 2 ** Math.min(failures - 3, 7)) : undefined;
     const next = { ...old, failures, lastFailure: new Date().toISOString(), lastError: error, quarantineUntil };
     records.set(keyOf(entry), next);
     save();
