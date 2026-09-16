@@ -5,6 +5,17 @@
 // rpm: per-model RPM limit (undefined = no documented limit)
 // tags: capability hints used by `harmony models` filtering and routing
 // ctx: context window in tokens (informational)
+export function capabilitiesFor(provider, model) {
+    const modelInfo = CATALOG.find((m) => m.provider === provider && m.model === model);
+    if (modelInfo?.supportsTools === true)
+        return { tools: "yes" };
+    if (modelInfo?.supportsTools === false)
+        return { tools: "no" };
+    // OpenAI-compatible providers advertise tool support inconsistently. Keep
+    // unknown catalog entries out of coding-agent turns until verified metadata
+    // says otherwise; simple chat requests can still use them.
+    return { tools: "unknown" };
+}
 export const CATALOG = [
     // ── OpenRouter (tier 1 — 50 rpd account-wide, spend on hardest tasks) ──
     { provider: "openrouter", model: "thinkingmachines/inkling-small:free", rpm: 20, ctx: 1_000_000, tier: 1, tags: ["reasoning"] },

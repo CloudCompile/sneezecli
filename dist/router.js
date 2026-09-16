@@ -4,6 +4,8 @@ import { homedir } from "node:os";
 import { checkBudget, chat } from "./llm.js";
 import { metadataFor, scoreModel } from "./model-data.js";
 import { debugLog } from "./debug-log.js";
+import { healthCheck, recordHealthFailure, recordHealthSuccess } from "./health.js";
+import { capabilitiesFor } from "./catalog.js";
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
@@ -47,7 +49,7 @@ export async function route(req, pool, cb, task = "", preferred) {
     // configured provider is available. If it is the only configured model,
     // retain it as a fallback so simple local prompts still work.
     const toolCapable = req.tools?.length
-        ? pool.filter((entry) => metadataFor(entry).supportsTools !== false)
+        ? pool.filter((entry) => capabilitiesFor(entry.provider, entry.model).tools === "yes" || metadataFor(entry).supportsTools === true)
         : pool;
     const candidates = toolCapable.length > 0 ? toolCapable : pool;
     const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
@@ -79,6 +81,12 @@ export async function route(req, pool, cb, task = "", preferred) {
                 throw new Error(`Stopped after 12 provider attempts; no reliable model responded.\n` +
                     attempts.map((a) => `  - ${a.entry.provider}/${a.entry.model}: ${a.error ?? "ok"}`).join("\n"));
             }
+            const health = healthCheck(entry);
+            if (!health.ok) {
+                attempts.push({ entry, error: health.reason });
+                debugLog("route.quarantined", { provider: entry.provider, model: entry.model, reason: health.reason });
+                continue;
+            }
             // wait out 429 cooldowns instead of immediately degrading capability
             let waited = false;
             for (let waits = 0; waits < 2; waits++) {
@@ -101,6 +109,7 @@ export async function route(req, pool, cb, task = "", preferred) {
                 continue;
             try {
                 const resp = await chat(entry, req, cb);
+                recordHealthSuccess(entry);
                 // advance cursor past the model that just succeeded
                 modelCursor.set(key, (start + gi + 1) % group.length);
                 saveCursor(modelCursor);
@@ -110,6 +119,8 @@ export async function route(req, pool, cb, task = "", preferred) {
             catch (err) {
                 attempts.push({ entry, error: err?.message ?? String(err) });
                 debugLog("route.fail", { provider: entry.provider, model: entry.model, error: err?.message ?? String(err) });
+                const health = recordHealthFailure(entry, err?.message ?? String(err));
+                debugLog("route.health", { provider: entry.provider, model: entry.model, failures: health.failures, quarantineUntil: health.quarantineUntil });
                 modelCursor.set(key, (start + gi + 1) % group.length);
                 saveCursor(modelCursor);
                 continue;

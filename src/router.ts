@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import { checkBudget, chat, type ChatRequest, type ChatResponse, type StreamCallbacks } from "./llm.js";
 import { metadataFor, scoreModel } from "./model-data.js";
 import { debugLog } from "./debug-log.js";
+import { healthCheck, recordHealthFailure, recordHealthSuccess } from "./health.js";
+import { capabilitiesFor } from "./catalog.js";
 
 export interface RouteAttempt {
   entry: ModelEntry;
@@ -70,7 +72,7 @@ export async function route(
   // configured provider is available. If it is the only configured model,
   // retain it as a fallback so simple local prompts still work.
   const toolCapable = req.tools?.length
-    ? pool.filter((entry) => metadataFor(entry).supportsTools !== false)
+    ? pool.filter((entry) => capabilitiesFor(entry.provider, entry.model).tools === "yes" || metadataFor(entry).supportsTools === true)
     : pool;
   const candidates = toolCapable.length > 0 ? toolCapable : pool;
   const ranked = [...candidates].sort((a, b) => scoreModel(b, task) - scoreModel(a, task));
@@ -106,6 +108,12 @@ export async function route(
           attempts.map((a) => `  - ${a.entry.provider}/${a.entry.model}: ${a.error ?? "ok"}`).join("\n")
         );
       }
+      const health = healthCheck(entry);
+      if (!health.ok) {
+        attempts.push({ entry, error: health.reason });
+        debugLog("route.quarantined", { provider: entry.provider, model: entry.model, reason: health.reason });
+        continue;
+      }
 
       // wait out 429 cooldowns instead of immediately degrading capability
       let waited = false;
@@ -127,6 +135,7 @@ export async function route(
 
       try {
         const resp = await chat(entry, req, cb);
+        recordHealthSuccess(entry);
         // advance cursor past the model that just succeeded
         modelCursor.set(key, (start + gi + 1) % group.length);
         saveCursor(modelCursor);
@@ -135,6 +144,8 @@ export async function route(
       } catch (err: any) {
         attempts.push({ entry, error: err?.message ?? String(err) });
         debugLog("route.fail", { provider: entry.provider, model: entry.model, error: err?.message ?? String(err) });
+        const health = recordHealthFailure(entry, err?.message ?? String(err));
+        debugLog("route.health", { provider: entry.provider, model: entry.model, failures: health.failures, quarantineUntil: health.quarantineUntil });
         modelCursor.set(key, (start + gi + 1) % group.length);
         saveCursor(modelCursor);
         continue;

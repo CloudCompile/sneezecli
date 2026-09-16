@@ -32,6 +32,7 @@ export interface ChatRequest {
   maxTokens?: number;
   temperature?: number;
   topP?: number;
+  timeoutMs?: number;
 }
 
 export interface ChatResponse {
@@ -260,6 +261,7 @@ export async function chat(
   };
   body.temperature = req.temperature ?? 0.2;
   body.top_p = req.topP ?? 0.9;
+  const timeoutMs = req.timeoutMs ?? Number(process.env.SNEEZE_TIMEOUT_MS ?? 30_000);
   debugLog("request.start", {
     provider: entry.provider,
     model: entry.model,
@@ -268,6 +270,7 @@ export async function chat(
     maxTokens: body.max_tokens,
     temperature: body.temperature,
     topP: body.top_p,
+    timeoutMs,
     streaming: !!cb?.onContent,
   });
   if (req.tools && req.tools.length > 0) {
@@ -293,10 +296,11 @@ export async function chat(
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       debugLog("request.http", { provider: entry.provider, model: entry.model, status: res.status });
     } catch (err: any) {
-      lastErr = new Error(`${def.name}: network error: ${err?.message ?? err}`);
+      lastErr = new Error(`${def.name}: network/timeout error: ${err?.message ?? err}`);
       debugLog("request.network_error", { provider: entry.provider, model: entry.model, error: lastErr.message });
       continue;
     }

@@ -133,6 +133,20 @@ The repository can contain a reviewable snapshot at
 benchmark data is unavailable. Metadata is intentionally optional: routing
 continues using catalog tags and neutral default scores.
 
+Runtime reliability
+
+Each request has a 30-second hard timeout by default (`SNEEZE_TIMEOUT_MS` can
+override it). Failed models accumulate persistent health failures in
+`~/.config/harmony/health.json`; repeated failures quarantine a model with an
+exponential cooldown. Request routing and model failures are recorded as
+secret-free JSONL in `~/.config/harmony/harmony.log` (`SNEEZE_LOG` overrides).
+
+Run the synthetic streaming checks and report:
+
+```bash
+npm run test:fake-stream
+npm run benchmark:report
+```
 ### Model metadata sources
 
 The metadata sync layer accepts normalized JSON from the two initial sources:

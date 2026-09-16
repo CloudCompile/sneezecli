@@ -16,6 +16,8 @@
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "test:tool-parser": "npm run build && node scripts/test-tool-parser.mjs",
+    "test:fake-stream": "npm run build && node scripts/test-fake-stream.mjs",
+    "benchmark:report": "npm run build && node scripts/benchmark-report.mjs",
     "prepublishOnly": "npm run build"
   },
   "repository": {
