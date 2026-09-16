@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const cwd = await mkdtemp(join(tmpdir(), "harmony-verify-"));
-await writeFile(join(cwd, "package.json"), JSON.stringify({ scripts: { test: "node -e process.exit(0)" } }));
+await writeFile(join(cwd, "package.json"), JSON.stringify({ scripts: { test: "true" } }));
 const { verifyWorkspace } = await import("../dist/verification.js");
 const result = await verifyWorkspace(cwd);
 assert.equal(result.passed, true);

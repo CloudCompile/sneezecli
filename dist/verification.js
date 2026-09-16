@@ -38,6 +38,6 @@ export async function verifyWorkspace(cwd, signal) {
     const scripts = pkg?.scripts ?? {};
     const script = ["test", "check", "build", "lint"].find((name) => typeof scripts[name] === "string");
     if (script)
-        checks.push(await run("npm", ["run", script, "--", "--if-present"], cwd, signal));
+        checks.push(await run("npm", ["run", script], cwd, signal));
     return { passed: checks.every((check) => check.passed), checks };
 }
