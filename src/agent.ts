@@ -3,6 +3,7 @@ import { route } from "./router.js";
 import { runTool, toolDefs, isDangerous } from "./tools.js";
 import type { ModelEntry, Config } from "./config.js";
 import { debugLog } from "./debug-log.js";
+import { verifyWorkspace, type VerificationResult } from "./verification.js";
 
 export class AgentAborted extends Error {
   constructor() {
@@ -16,6 +17,7 @@ export interface AgentResult {
   iterations: number;
   filesChanged: number;
   verificationPassed?: boolean;
+  verification?: VerificationResult;
   toolCallsMade: { name: string; args: any; result: string }[];
   messages: ChatMessage[];
 }
@@ -33,6 +35,7 @@ export interface AgentEvents {
   /** called to check if the run was aborted (e.g. Esc pressed) */
   isAborted?: () => boolean;
   onTurnEnd?: (result: AgentResult) => void;
+  onVerification?: (result: VerificationResult) => void;
 }
 
 export async function runAgent(
@@ -83,7 +86,9 @@ export async function runAgent(
 
     if (resp.toolCalls.length === 0) {
       messages.push({ role: "assistant", content: resp.content });
-      const result: AgentResult = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, toolCallsMade, messages };
+      const verification = filesChanged > 0 && cfg.verify !== false ? await verifyWorkspace(cwd, events.abortSignal) : undefined;
+      if (verification) events.onVerification?.(verification);
+      const result: AgentResult = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
       events.onTurnEnd?.(result);
       return result;
     }

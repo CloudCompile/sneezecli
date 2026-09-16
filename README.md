@@ -178,6 +178,11 @@ One-shot runs report an explicit lifecycle status—`completed`, `cancelled`, or
 Permanent model errors such as HTTP 404 and 410 are quarantined separately from
 transient failures.
 
+After a mutating agent turn, Harmony automatically runs `git diff --check` and
+the first available project script from `test`, `check`, `build`, or `lint`.
+Use `harmony verify` to run the same checks directly. Set `verify: false` in
+the config file to disable automatic verification.
+
 ### Model metadata sources
 
 The metadata sync layer accepts normalized JSON from the two initial sources:

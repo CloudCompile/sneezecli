@@ -30,6 +30,8 @@ export interface Config {
   name?: string;
   /** Anonymous reliability telemetry is disabled unless explicitly enabled. */
   telemetry?: { enabled: boolean; endpoint?: string };
+  /** run safe workspace verification after mutating agent turns (default true) */
+  verify?: boolean;
 }
 
 function configDir(): string {

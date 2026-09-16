@@ -717,6 +717,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
       state.session.messages as ChatMessage[],
       events
     );
+    if (result.verification) process.stdout.write(`\nverification: ${result.verificationPassed ? "passed" : "failed"}\n`);
     state.session.messages = result.messages;
     saveSession(state.session);
     console.log("\n");

@@ -9,6 +9,7 @@ import { usageLog, checkBudget } from "./llm.js";
 import { debugLogPath } from "./debug-log.js";
 import { flushTelemetry, setTelemetry, telemetryStatus } from "./telemetry.js";
 import { startTui } from "./tui.js";
+import { verifyWorkspace } from "./verification.js";
 
 const C = {
   dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
@@ -38,6 +39,7 @@ Pool management:
   harmony pool                           Show model pool
   harmony status                         Rate-limit / budget state
   harmony doctor                         Check runtime configuration
+  harmony verify                         Run workspace verification checks
   harmony cost                           Session token/request usage
   harmony telemetry status               Show anonymous telemetry status
   harmony telemetry enable               Enable local telemetry queueing
@@ -243,6 +245,17 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
   });
   console.log(`\n---\n${result.finalText}`);
   console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
+  if (result.verification) console.log(`verification: ${result.verificationPassed ? "passed" : "failed"}`);
+}
+
+async function cmdVerify(): Promise<void> {
+  const result = await verifyWorkspace(process.cwd());
+  for (const check of result.checks) {
+    console.log(`${check.passed ? "✓" : "✗"} ${check.name} (${check.durationMs}ms)`);
+    if (!check.passed && check.output) console.log(check.output);
+  }
+  if (result.checks.length === 0) console.log("No verification checks detected.");
+  if (!result.passed) process.exitCode = 1;
 }
 
 function applyRunFlags(args: string[], cfg: Config): { task: string; resumeId?: string } {
@@ -369,6 +382,9 @@ function cDim(s: string): string {
       break;
     case "doctor":
       cmdDoctor();
+      break;
+    case "verify":
+      await cmdVerify();
       break;
     case "run":
     case "-p": {

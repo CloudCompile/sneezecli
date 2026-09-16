@@ -659,6 +659,8 @@ async function agentTurn(state, task, rl) {
     };
     try {
         const result = await runAgent(task, state.pool, state.cfg, state.cwd, state.session.messages, events);
+        if (result.verification)
+            process.stdout.write(`\nverification: ${result.verificationPassed ? "passed" : "failed"}\n`);
         state.session.messages = result.messages;
         saveSession(state.session);
         console.log("\n");

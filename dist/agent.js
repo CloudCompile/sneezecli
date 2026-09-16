@@ -1,6 +1,7 @@
 import { route } from "./router.js";
 import { runTool, toolDefs, isDangerous } from "./tools.js";
 import { debugLog } from "./debug-log.js";
+import { verifyWorkspace } from "./verification.js";
 export class AgentAborted extends Error {
     constructor() {
         super("aborted by user");
@@ -37,7 +38,10 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {
             messages.push({ role: "assistant", content: resp.content });
-            const result = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, toolCallsMade, messages };
+            const verification = filesChanged > 0 && cfg.verify !== false ? await verifyWorkspace(cwd, events.abortSignal) : undefined;
+            if (verification)
+                events.onVerification?.(verification);
+            const result = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
             events.onTurnEnd?.(result);
             return result;
         }

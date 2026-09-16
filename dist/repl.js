@@ -52,6 +52,9 @@ async function agentTurn(state, task) {
     try {
         const result = await runAgent(task, state.pool, state.cfg, state.cwd, state.session.messages, events);
         state.session.messages = result.messages;
+        if (result.verification) {
+            process.stdout.write(C.dim(`verification: ${result.verificationPassed ? "passed" : "failed"}\n`));
+        }
         if (result.finalText && !result.finalText.includes("\n")) {
             // content was streamed; newline for spacing
         }

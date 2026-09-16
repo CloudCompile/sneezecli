@@ -77,6 +77,9 @@ async function agentTurn(state: ReplState, task: string): Promise<void> {
       events
     );
     state.session.messages = result.messages;
+    if (result.verification) {
+      process.stdout.write(C.dim(`verification: ${result.verificationPassed ? "passed" : "failed"}\n`));
+    }
     if (result.finalText && !result.finalText.includes("\n")) {
       // content was streamed; newline for spacing
     }
