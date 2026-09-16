@@ -182,7 +182,7 @@ export async function chat(entry, req, cb) {
     };
     body.temperature = req.temperature ?? 0.2;
     body.top_p = req.topP ?? 0.9;
-    const timeoutMs = req.timeoutMs ?? Number(process.env.SNEEZE_TIMEOUT_MS ?? 30_000);
+    const timeoutMs = req.timeoutMs ?? Number(process.env.SNEEZE_TIMEOUT_MS ?? 10_000);
     debugLog("request.start", {
         provider: entry.provider,
         model: entry.model,
@@ -225,7 +225,10 @@ export async function chat(entry, req, cb) {
         catch (err) {
             lastErr = new Error(`${def.name}: network/timeout error: ${err?.message ?? err}`);
             debugLog("request.network_error", { provider: entry.provider, model: entry.model, error: lastErr.message });
-            continue;
+            // Network failures and timeouts belong to the router. Retrying here
+            // hides the fallback transition for another full timeout period and
+            // makes the TUI look frozen. Only rate limits are retried locally.
+            throw lastErr;
         }
         if (res.status === 429) {
             markRateLimited(entry);

@@ -135,7 +135,7 @@ continues using catalog tags and neutral default scores.
 
 Runtime reliability
 
-Each request has a 30-second hard timeout by default (`SNEEZE_TIMEOUT_MS` can
+Each request has a 10-second hard timeout by default (`SNEEZE_TIMEOUT_MS` can
 override it). Failed models accumulate persistent health failures in
 `~/.config/harmony/health.json`; repeated failures quarantine a model with an
 exponential cooldown. Request routing and model failures are recorded as

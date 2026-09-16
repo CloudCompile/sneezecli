@@ -681,7 +681,7 @@ async function agentTurn(state: TuiState, task: string, rl: readline.Interface):
   const events: AgentEvents = {
     onModel: (p, m) => {
       state.lastModel = `${p}/${m}`;
-      process.stdout.write(c.gray(`\n  ◦ model ${p}/${m} · ${elapsed(startedAt)}`) + c.reset + "\n");
+      process.stdout.write(c.gray(`\n  ◦ trying ${p}/${m} · ${elapsed(startedAt)}`) + c.reset + "\n");
     },
     onContent: (d) => {
       streamed += d;

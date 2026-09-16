@@ -27,7 +27,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
             maxTokens: cfg.maxTokens,
             temperature: 1.0,
             topP: 0.9,
-            timeoutMs: Number(process.env.SNEEZE_TIMEOUT_MS ?? 30_000),
+            timeoutMs: Number(process.env.SNEEZE_TIMEOUT_MS ?? 10_000),
         }, pool, { onContent: events.onContent, onCorruption: events.onCorruption }, userTask, selectedModel);
         selectedModel = resp.entry;
         debugLog("agent.model", { provider: resp.entry.provider, model: resp.entry.model, iteration: i + 1 });

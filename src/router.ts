@@ -148,6 +148,7 @@ export async function route(
         debugLog("route.health", { provider: entry.provider, model: entry.model, failures: health.failures, quarantineUntil: health.quarantineUntil });
         modelCursor.set(key, (start + gi + 1) % group.length);
         saveCursor(modelCursor);
+        debugLog("route.fallback", { from: `${entry.provider}/${entry.model}`, nextAttempt: providerAttempts + 1 });
         continue;
       }
     }
