@@ -73,7 +73,7 @@ export async function runAgent(
         maxTokens: cfg.maxTokens,
         temperature: 1.0,
         topP: 0.9,
-        timeoutMs: Number(process.env.SNEEZE_TIMEOUT_MS ?? 10_000),
+        timeoutMs: Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000),
       },
       pool,
       { onContent: events.onContent, onCorruption: events.onCorruption },

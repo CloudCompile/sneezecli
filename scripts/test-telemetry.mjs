@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const dir = await mkdtemp(join(tmpdir(), "harmony-telemetry-"));
-process.env.SNEEZE_CONFIG_DIR = dir;
-process.env.SNEEZE_CONFIG = join(dir, "config.json");
-process.env.SNEEZE_TELEMETRY_QUEUE = join(dir, "telemetry.jsonl");
+process.env.HARMONY_CONFIG_DIR = dir;
+process.env.HARMONY_CONFIG = join(dir, "config.json");
+process.env.HARMONY_TELEMETRY_QUEUE = join(dir, "telemetry.jsonl");
 const { recordTelemetry, setTelemetry, flushTelemetry, telemetryStatus } = await import("../dist/telemetry.js");
 
 recordTelemetry({ event: "disabled", provider: "secret-provider", model: "secret-model" });

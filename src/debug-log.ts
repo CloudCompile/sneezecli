@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 
-const LOG_PATH = process.env.SNEEZE_LOG ?? `${homedir()}/.config/harmony/harmony.log`;
+const LOG_PATH = process.env.HARMONY_LOG ?? process.env.SNEEZE_LOG ?? `${homedir()}/.config/harmony/harmony.log`;
 
 export function debugLog(event: string, details: Record<string, unknown> = {}): void {
   try {

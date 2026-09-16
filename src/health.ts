@@ -11,7 +11,7 @@ export interface HealthRecord {
   quarantineUntil?: number;
 }
 
-const PATH = process.env.SNEEZE_HEALTH ?? `${homedir()}/.config/harmony/health.json`;
+const PATH = process.env.HARMONY_HEALTH ?? process.env.SNEEZE_HEALTH ?? `${homedir()}/.config/harmony/health.json`;
 const records = new Map<string, HealthRecord>();
 try {
   if (existsSync(PATH)) {

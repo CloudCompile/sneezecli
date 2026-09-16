@@ -73,7 +73,7 @@ export const usageLog = new Map<string, Usage>();
 const cooldownUntil = new Map<string, number>();
 
 /** Rate state persisted to disk so one-shot `run` invocations share budgets. */
-const RATE_PATH = process.env.SNEEZE_RATE ?? `${homedir()}/.config/harmony/rate.json`;
+const RATE_PATH = process.env.HARMONY_RATE ?? process.env.SNEEZE_RATE ?? `${homedir()}/.config/harmony/rate.json`;
 
 function loadRateStates(): Map<string, RateState> {
   try {
@@ -195,7 +195,7 @@ interface MockScript {
 }
 
 function loadMockScript(): MockScript | undefined {
-  const p = process.env.SNEEZE_MOCK_SCRIPT;
+  const p = process.env.HARMONY_MOCK_SCRIPT ?? process.env.SNEEZE_MOCK_SCRIPT;
   if (!p) return undefined;
   return JSON.parse(readFileSync(p, "utf8")) as MockScript;
 }
@@ -245,7 +245,7 @@ export async function chat(
   const startedAt = Date.now();
 
   if (entry.provider === "mock") {
-    if (process.env.SNEEZE_MOCK !== "1") throw new Error("Mock provider requires SNEEZE_MOCK=1");
+    if ((process.env.HARMONY_MOCK ?? process.env.SNEEZE_MOCK) !== "1") throw new Error("Mock provider requires HARMONY_MOCK=1");
     const r = mockResponse(req);
     recordRequest(entry, estTokens(req.messages), Math.ceil(r.content.length / 4));
     if (r.content && cb?.onContent) cb.onContent(r.content);
@@ -263,7 +263,7 @@ export async function chat(
   };
   body.temperature = req.temperature ?? 0.2;
   body.top_p = req.topP ?? 0.9;
-  const timeoutMs = req.timeoutMs ?? Number(process.env.SNEEZE_TIMEOUT_MS ?? 10_000);
+  const timeoutMs = req.timeoutMs ?? Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000);
   debugLog("request.start", {
     provider: entry.provider,
     model: entry.model,

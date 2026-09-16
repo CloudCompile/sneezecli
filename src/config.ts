@@ -35,13 +35,13 @@ export interface Config {
 }
 
 function configDir(): string {
-  return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/harmony`;
+  return process.env.HARMONY_CONFIG_DIR ?? process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/harmony`;
 }
 function sessionsDirPath(): string {
   return `${configDir()}/sessions`;
 }
 function configFilePath(): string {
-  return process.env.SNEEZE_CONFIG ?? `${configDir()}/config.json`;
+  return process.env.HARMONY_CONFIG ?? process.env.SNEEZE_CONFIG ?? `${configDir()}/config.json`;
 }
 
 export function configPath(): string {

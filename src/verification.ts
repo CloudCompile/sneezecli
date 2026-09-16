@@ -16,7 +16,7 @@ export interface VerificationResult {
 }
 
 const MAX_OUTPUT = 8_000;
-const TIMEOUT_MS = Number(process.env.SNEEZE_VERIFY_TIMEOUT_MS ?? 60_000);
+const TIMEOUT_MS = Number(process.env.HARMONY_VERIFY_TIMEOUT_MS ?? process.env.SNEEZE_VERIFY_TIMEOUT_MS ?? 60_000);
 
 function run(command: string, args: string[], cwd: string, signal?: AbortSignal): Promise<VerificationCheck> {
   const started = Date.now();

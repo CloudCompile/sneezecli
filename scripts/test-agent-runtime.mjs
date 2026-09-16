@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const cwd = await mkdtemp(join(tmpdir(), "harmony-agent-"));
-process.env.SNEEZE_MOCK = "1";
-process.env.SNEEZE_CONFIG_DIR = cwd;
+process.env.HARMONY_MOCK = "1";
+process.env.HARMONY_CONFIG_DIR = cwd;
 const { runAgent } = await import("../dist/agent.js");
 
 const events = [];

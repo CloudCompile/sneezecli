@@ -45,14 +45,14 @@ async function askConfirm(tool: string, summary: string): Promise<boolean> {
     })
   );
   if (answer === "a") {
-    process.env.SNEEZE_YOLO_SESSION = "1";
+    process.env.HARMONY_YOLO_SESSION = "1";
     return true;
   }
   return answer === "" || answer === "y" || answer === "yes";
 }
 
 async function agentTurn(state: ReplState, task: string): Promise<void> {
-  const yolo = state.cfg.yolo || process.env.SNEEZE_YOLO_SESSION === "1";
+  const yolo = state.cfg.yolo || process.env.HARMONY_YOLO_SESSION === "1" || process.env.SNEEZE_YOLO_SESSION === "1";
   const events: AgentEvents = {
     onModel: (p, m) => process.stdout.write(C.dim(`\n[${p}/${m}]\n`)),
     onContent: (d) => process.stdout.write(d),

@@ -23,7 +23,7 @@ export interface ToolImpl {
 }
 
 const MAX_OUTPUT = 20_000;
-const SHELL_TIMEOUT = Number(process.env.SNEEZE_TOOL_TIMEOUT_MS ?? 60_000);
+const SHELL_TIMEOUT = Number(process.env.HARMONY_TOOL_TIMEOUT_MS ?? process.env.SNEEZE_TOOL_TIMEOUT_MS ?? 60_000);
 
 function truncate(s: string): string {
   if (s.length <= MAX_OUTPUT) return s;

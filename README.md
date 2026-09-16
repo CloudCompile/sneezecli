@@ -1,6 +1,6 @@
 # harmony
 
-An interactive coding-agent harness for your terminal. `harmony` uses many free providers, that it has you configure api keys for that are easy to get. It can read, edit, search, and run commands in a repository
+An interactive coding-agent harness for your terminal. `harmony` uses a maintained catalog of free providers and free models; provider API keys are access credentials, not Harmony charges. It can read, edit, search, and run commands in a repository
 using a single agent loop.
 
 ## Installation
@@ -133,11 +133,11 @@ continues using catalog tags and neutral default scores.
 
 Runtime reliability
 
-Each request has a 10-second hard timeout by default (`SNEEZE_TIMEOUT_MS` can
+Each request has a 10-second hard timeout by default (`HARMONY_TIMEOUT_MS` can
 override it). Failed models accumulate persistent health failures in
 `~/.config/harmony/health.json`; repeated failures quarantine a model with an
 exponential cooldown. Request routing and model failures are recorded as
-secret-free JSONL in `~/.config/harmony/harmony.log` (`SNEEZE_LOG` overrides).
+secret-free JSONL in `~/.config/harmony/harmony.log` (`HARMONY_LOG` overrides).
 
 Run the synthetic streaming checks and report:
 
@@ -168,8 +168,8 @@ not enabled by default; users must explicitly configure one.
 
 Use `harmony doctor` to inspect the configured pool, runtime, and missing
 provider keys. Tool output is bounded, shell commands can be cancelled, and
-the shell timeout can be configured with `SNEEZE_TOOL_TIMEOUT_MS` (default 60
-seconds). Model requests use `SNEEZE_TIMEOUT_MS` (default 10 seconds).
+the shell timeout can be configured with `HARMONY_TOOL_TIMEOUT_MS` (default 60
+seconds). Model requests use `HARMONY_TIMEOUT_MS` (default 10 seconds).
 
 One-shot runs report an explicit lifecycle status—`completed`, `cancelled`, or
 `max_iterations`—along with iteration, tool-call, and file-change counts.
@@ -185,22 +185,22 @@ the config file to disable automatic verification.
 
 The metadata sync layer accepts normalized JSON from the two initial sources:
 
-- Artificial Analysis, configured with `SNEEZE_ARTIFICIAL_ANALYSIS_URL` and
+- Artificial Analysis, configured with `HARMONY_ARTIFICIAL_ANALYSIS_URL` and
    `ARTIFICIAL_ANALYSIS_API_KEY`.
-- LMArena/Chatbot Arena, configured with `SNEEZE_LMARENA_URL`.
+- LMArena/Chatbot Arena, configured with `HARMONY_LMARENA_URL`.
 
 Run a sync after setting those variables:
 
 ```bash
-SNEEZE_ARTIFICIAL_ANALYSIS_URL=https://... \
-SNEEZE_LMARENA_URL=https://... \
+HARMONY_ARTIFICIAL_ANALYSIS_URL=https://... \
+HARMONY_LMARENA_URL=https://... \
 harmony sync-models
 ```
 
 The URLs are configurable because both services may expose different preview,
 dataset, or proxy endpoints over time. The command merges fetched rows with
 the built-in catalog and writes the snapshot to `data/model-metadata.json`
-(override the path with `SNEEZE_METADATA`). Do not commit API keys or private
+(override the path with `HARMONY_METADATA`). Do not commit API keys or private
 raw responses. A future adapter can add `llm-bench-data` performance rows
 without changing the router interface.
 
@@ -214,7 +214,7 @@ harmony add --auto            # add all catalog text models
 harmony sync-models           # refresh optional benchmark metadata
 harmony pool                  # show the configured pool
 harmony status                # show rate and budget state
-harmony cost                  # show this process's usage
+harmony usage                 # show this process's free-provider quota usage
 ```
 
 ## Interactive TUI

@@ -155,7 +155,7 @@ async function confirmPrompt(tool: string, summary: string): Promise<boolean> {
           cleanup();
           resolve(true);
         } else if (k === "a") {
-          process.env.SNEEZE_YOLO_SESSION = "1";
+          process.env.HARMONY_YOLO_SESSION = "1";
           cleanup();
           resolve(true);
         } else if (k === "n" || k === "\x1b" || k === "\x03") {
@@ -653,7 +653,7 @@ function printHelp(): void {
 }
 
 async function agentTurn(state: TuiState, task: string, rl: readline.Interface): Promise<void> {
-  const yolo = state.cfg.yolo || process.env.SNEEZE_YOLO_SESSION === "1";
+  const yolo = state.cfg.yolo || process.env.HARMONY_YOLO_SESSION === "1" || process.env.SNEEZE_YOLO_SESSION === "1";
   state.abort = new AbortController();
   let aborted = false;
   const startedAt = Date.now();
