@@ -1,8 +1,6 @@
 # harmony
 
-An interactive coding-agent harness for your terminal. `harmony` uses your
-own API keys (BYOK) and routes OpenAI-compatible requests across a curated set
-of free providers. It can read, edit, search, and run commands in a repository
+An interactive coding-agent harness for your terminal. `harmony` uses many free providers, that it has you configure api keys for that are easy to get. It can read, edit, search, and run commands in a repository
 using a single agent loop.
 
 ## Installation
