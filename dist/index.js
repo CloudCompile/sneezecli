@@ -238,6 +238,8 @@ async function cmdRun(task, cfg, resumeId) {
     console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
     if (result.verification)
         console.log(`verification: ${result.verificationPassed ? "passed" : "failed"}`);
+    if (result.status !== "completed" || result.verificationPassed === false)
+        process.exitCode = result.status === "cancelled" ? 130 : 1;
 }
 async function cmdVerify() {
     const result = await verifyWorkspace(process.cwd());

@@ -186,8 +186,16 @@ transient failures.
 
 After a mutating agent turn, Harmony automatically runs `git diff --check` and
 the first available project script from `test`, `check`, `build`, or `lint`.
-Use `harmony verify` to run the same checks directly. Set `verify: false` in
-the config file to disable automatic verification.
+If a check fails, the failure output is sent back to the model for up to two
+repair cycles. A task is completed only when verification passes; otherwise it
+ends with `failed`. Use `harmony verify` to run the same checks directly. Set
+`verify: false` in the config file to disable automatic verification. Configure
+the repair limit with `maxRepairIterations`.
+
+`harmony run -p "..."` exits with code `0` only for a completed task. Failed
+verification, failed quality gates, and max-iteration runs return `1`; a user
+cancellation returns `130`. File tools reject paths outside the workspace,
+including symlink escapes.
 
 ### Model metadata sources
 

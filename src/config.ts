@@ -32,6 +32,8 @@ export interface Config {
   telemetry?: { enabled: boolean; endpoint?: string };
   /** run safe workspace verification after mutating agent turns (default true) */
   verify?: boolean;
+  /** maximum verification-driven repair cycles (default 2) */
+  maxRepairIterations?: number;
 }
 
 function configDir(): string {

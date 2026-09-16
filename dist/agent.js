@@ -10,6 +10,9 @@ export class AgentAborted extends Error {
 export async function runAgent(userTask, pool, cfg, cwd, history = [], events = {}) {
     const toolCallsMade = [];
     let filesChanged = 0;
+    let repairIterations = 0;
+    let qualityRetries = 0;
+    const seenToolCalls = new Set();
     const messages = [...history];
     if (messages.length === 0 && cfg.systemPrompt) {
         messages.push({ role: "system", content: cfg.systemPrompt });
@@ -37,11 +40,25 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
         debugLog("agent.model", { provider: resp.entry.provider, model: resp.entry.model, iteration: i + 1 });
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {
+            const empty = !resp.content.trim();
+            const requiresTool = /\b(use|run|read|inspect|check|list|search|find)\b.{0,40}\b(tool|file|repo|repository|directory|test|code|package\.json|tsconfig)/i.test(userTask);
+            if ((empty || (requiresTool && toolCallsMade.length === 0)) && qualityRetries < 2) {
+                qualityRetries++;
+                messages.push({ role: "assistant", content: resp.content });
+                messages.push({ role: "user", content: empty ? "Your response was empty. Continue the task and provide a useful answer." : "You did not use a tool even though this task requires repository inspection. Use the appropriate read-only tool before answering." });
+                continue;
+            }
             messages.push({ role: "assistant", content: resp.content });
             const verification = filesChanged > 0 && cfg.verify !== false ? await verifyWorkspace(cwd, events.abortSignal) : undefined;
             if (verification)
                 events.onVerification?.(verification);
-            const result = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
+            if (verification && !verification.passed && repairIterations < (cfg.maxRepairIterations ?? 2)) {
+                repairIterations++;
+                messages.push({ role: "user", content: verificationPrompt(verification) });
+                continue;
+            }
+            const qualityFailed = empty || (requiresTool && toolCallsMade.length === 0);
+            const result = { finalText: qualityFailed ? "Unable to produce a valid task result." : resp.content, status: qualityFailed || verification?.passed === false ? "failed" : "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
             events.onTurnEnd?.(result);
             return result;
         }
@@ -54,12 +71,20 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
             if (events.isAborted?.() || events.abortSignal?.aborted)
                 throw new AgentAborted();
             let args = {};
+            let parseError = false;
             try {
                 args = JSON.parse(tc.function.arguments || "{}");
             }
             catch {
                 args = {};
+                parseError = true;
             }
+            const signature = `${tc.function.name}:${tc.function.arguments}`;
+            if (seenToolCalls.has(signature)) {
+                messages.push({ role: "tool", tool_call_id: tc.id, content: "ERROR: repeated identical tool call; reconsider the task and choose a different action." });
+                continue;
+            }
+            seenToolCalls.add(signature);
             if (isDangerous(tc.function.name) && !cfg.yolo && events.confirm) {
                 const ok = await events.confirm(tc.function.name, summarize(tc.function.name, args));
                 if (!ok) {
@@ -73,7 +98,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
             }
             events.onToolStart?.(tc.function.name, args);
             debugLog("tool.start", { name: tc.function.name, args });
-            const result = await runTool(tc.function.name, args, {
+            const result = parseError ? "ERROR: malformed tool arguments; arguments must be valid JSON" : await runTool(tc.function.name, args, {
                 cwd,
                 confirm: events.confirm,
                 pool,
@@ -99,6 +124,10 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
     };
     events.onTurnEnd?.(result);
     return result;
+}
+function verificationPrompt(result) {
+    const details = result.checks.map((c) => `${c.passed ? "PASS" : "FAIL"} ${c.command}\n${c.output ?? ""}`).join("\n");
+    return `Verification failed. Fix the implementation, then rerun the relevant checks.\n\n${details}`.slice(0, 12_000);
 }
 function summarize(name, args) {
     switch (name) {

@@ -48,6 +48,9 @@ export async function runAgent(
 ): Promise<AgentResult> {
   const toolCallsMade: AgentResult["toolCallsMade"] = [];
   let filesChanged = 0;
+  let repairIterations = 0;
+  let qualityRetries = 0;
+  const seenToolCalls = new Set<string>();
 
   const messages: ChatMessage[] = [...history];
   if (messages.length === 0 && cfg.systemPrompt) {
@@ -85,10 +88,24 @@ export async function runAgent(
     events.onModel?.(resp.entry.provider, resp.entry.model);
 
     if (resp.toolCalls.length === 0) {
+      const empty = !resp.content.trim();
+      const requiresTool = /\b(use|run|read|inspect|check|list|search|find)\b.{0,40}\b(tool|file|repo|repository|directory|test|code|package\.json|tsconfig)/i.test(userTask);
+      if ((empty || (requiresTool && toolCallsMade.length === 0)) && qualityRetries < 2) {
+        qualityRetries++;
+        messages.push({ role: "assistant", content: resp.content });
+        messages.push({ role: "user", content: empty ? "Your response was empty. Continue the task and provide a useful answer." : "You did not use a tool even though this task requires repository inspection. Use the appropriate read-only tool before answering." });
+        continue;
+      }
       messages.push({ role: "assistant", content: resp.content });
       const verification = filesChanged > 0 && cfg.verify !== false ? await verifyWorkspace(cwd, events.abortSignal) : undefined;
       if (verification) events.onVerification?.(verification);
-      const result: AgentResult = { finalText: resp.content, status: "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
+      if (verification && !verification.passed && repairIterations < (cfg.maxRepairIterations ?? 2)) {
+        repairIterations++;
+        messages.push({ role: "user", content: verificationPrompt(verification) });
+        continue;
+      }
+      const qualityFailed = empty || (requiresTool && toolCallsMade.length === 0);
+      const result: AgentResult = { finalText: qualityFailed ? "Unable to produce a valid task result." : resp.content, status: qualityFailed || verification?.passed === false ? "failed" : "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages };
       events.onTurnEnd?.(result);
       return result;
     }
@@ -102,11 +119,20 @@ export async function runAgent(
     for (const tc of resp.toolCalls as ToolCall[]) {
       if (events.isAborted?.() || events.abortSignal?.aborted) throw new AgentAborted();
       let args: any = {};
+      let parseError = false;
       try {
         args = JSON.parse(tc.function.arguments || "{}");
       } catch {
         args = {};
+        parseError = true;
       }
+
+      const signature = `${tc.function.name}:${tc.function.arguments}`;
+      if (seenToolCalls.has(signature)) {
+        messages.push({ role: "tool", tool_call_id: tc.id, content: "ERROR: repeated identical tool call; reconsider the task and choose a different action." });
+        continue;
+      }
+      seenToolCalls.add(signature);
 
       if (isDangerous(tc.function.name) && !cfg.yolo && events.confirm) {
         const ok = await events.confirm(tc.function.name, summarize(tc.function.name, args));
@@ -122,7 +148,7 @@ export async function runAgent(
 
       events.onToolStart?.(tc.function.name, args);
       debugLog("tool.start", { name: tc.function.name, args });
-      const result = await runTool(tc.function.name, args, {
+      const result = parseError ? "ERROR: malformed tool arguments; arguments must be valid JSON" : await runTool(tc.function.name, args, {
         cwd,
         confirm: events.confirm,
         pool,
@@ -149,6 +175,11 @@ export async function runAgent(
   };
   events.onTurnEnd?.(result);
   return result;
+}
+
+function verificationPrompt(result: VerificationResult): string {
+  const details = result.checks.map((c) => `${c.passed ? "PASS" : "FAIL"} ${c.command}\n${c.output ?? ""}`).join("\n");
+  return `Verification failed. Fix the implementation, then rerun the relevant checks.\n\n${details}`.slice(0, 12_000);
 }
 
 function summarize(name: string, args: any): string {

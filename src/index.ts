@@ -247,6 +247,7 @@ async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<voi
   console.log(`\n---\n${result.finalText}`);
   console.log(`\n(${result.status}; ${result.iterations} iterations, ${result.toolCallsMade.length} tool calls, ${result.filesChanged} file changes)`);
   if (result.verification) console.log(`verification: ${result.verificationPassed ? "passed" : "failed"}`);
+  if (result.status !== "completed" || result.verificationPassed === false) process.exitCode = result.status === "cancelled" ? 130 : 1;
 }
 
 async function cmdVerify(): Promise<void> {

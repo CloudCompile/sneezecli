@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, rmSync } from "node:fs";
-import { dirname, join, resolve, basename, extname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, rmSync, realpathSync } from "node:fs";
+import { dirname, join, resolve, basename, extname, relative, sep } from "node:path";
 import { execSync, spawn, exec } from "node:child_process";
 const MAX_OUTPUT = 20_000;
 const SHELL_TIMEOUT = Number(process.env.HARMONY_TOOL_TIMEOUT_MS ?? process.env.SNEEZE_TOOL_TIMEOUT_MS ?? 60_000);
@@ -9,7 +9,18 @@ function truncate(s) {
     return s.slice(0, MAX_OUTPUT) + `\n... (truncated, ${s.length - MAX_OUTPUT} more chars)`;
 }
 function abs(ctx, p) {
-    return resolve(ctx.cwd, p);
+    const root = resolve(ctx.cwd);
+    const target = resolve(root, p);
+    const resolvedRoot = realpathSync(root);
+    let parent = dirname(target);
+    while (!existsSync(parent) && parent !== dirname(parent))
+        parent = dirname(parent);
+    const resolvedTarget = existsSync(target) ? realpathSync(target) : resolve(realpathSync(parent), relative(parent, target));
+    const rel = relative(resolvedRoot, resolvedTarget);
+    if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith("../") || rel.startsWith("..\\")) {
+        throw new Error(`path is outside workspace: ${p}`);
+    }
+    return target;
 }
 export const TOOLS = [
     {

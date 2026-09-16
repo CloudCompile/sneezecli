@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, rmSync } from "node:fs";
-import { dirname, join, resolve, basename, extname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, rmSync, realpathSync } from "node:fs";
+import { dirname, join, resolve, basename, extname, relative, sep } from "node:path";
 import { execSync, spawn, exec } from "node:child_process";
 import type { ToolDef } from "./llm.js";
 import { spawnSubtask, getTask, listTasks } from "./subagents.js";
@@ -31,7 +31,17 @@ function truncate(s: string): string {
 }
 
 function abs(ctx: ToolContext, p: string): string {
-  return resolve(ctx.cwd, p);
+  const root = resolve(ctx.cwd);
+  const target = resolve(root, p);
+  const resolvedRoot = realpathSync(root);
+  let parent = dirname(target);
+  while (!existsSync(parent) && parent !== dirname(parent)) parent = dirname(parent);
+  const resolvedTarget = existsSync(target) ? realpathSync(target) : resolve(realpathSync(parent), relative(parent, target));
+  const rel = relative(resolvedRoot, resolvedTarget);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith("../") || rel.startsWith("..\\")) {
+    throw new Error(`path is outside workspace: ${p}`);
+  }
+  return target;
 }
 
 export const TOOLS: ToolImpl[] = [
