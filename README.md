@@ -147,6 +147,24 @@ Run the synthetic streaming checks and report:
 npm run test:fake-stream
 npm run benchmark:report
 ```
+
+### Opt-in anonymous telemetry
+
+Telemetry is disabled by default. When enabled, Harmony queues only provider
+and model reliability metrics such as success, timeout, rate-limit, corruption,
+tool-call count, and latency. It never sends prompts, responses, file paths,
+tool arguments, API keys, authorization headers, usernames, or repository names.
+
+```bash
+harmony telemetry status
+harmony telemetry enable https://your-collector.example/v1/events
+harmony telemetry flush
+harmony telemetry disable
+```
+
+Events are queued locally at `~/.config/harmony/telemetry.jsonl` and uploads are
+best-effort with a five-second timeout. The collector endpoint is deliberately
+not enabled by default; users must explicitly configure one.
 ### Model metadata sources
 
 The metadata sync layer accepts normalized JSON from the two initial sources:

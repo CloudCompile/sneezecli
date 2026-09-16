@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { debugLog } from "./debug-log.js";
+import { recordTelemetry } from "./telemetry.js";
 export class HttpError extends Error {
     status;
     constructor(status, message) {
@@ -161,6 +162,7 @@ function mockResponse(req) {
 // ---------- main chat call ----------
 export async function chat(entry, req, cb) {
     const def = PROVIDERS[entry.provider];
+    const startedAt = Date.now();
     if (entry.provider === "mock") {
         if (process.env.SNEEZE_MOCK !== "1")
             throw new Error("Mock provider requires SNEEZE_MOCK=1");
@@ -221,10 +223,12 @@ export async function chat(entry, req, cb) {
                 signal: AbortSignal.timeout(timeoutMs),
             });
             debugLog("request.http", { provider: entry.provider, model: entry.model, status: res.status });
+            recordTelemetry({ event: "http", provider: entry.provider, model: entry.model, status: res.status, latencyMs: Date.now() - startedAt });
         }
         catch (err) {
             lastErr = new Error(`${def.name}: network/timeout error: ${err?.message ?? err}`);
             debugLog("request.network_error", { provider: entry.provider, model: entry.model, error: lastErr.message });
+            recordTelemetry({ event: "timeout_or_network_error", provider: entry.provider, model: entry.model, latencyMs: Date.now() - startedAt, errorClass: "network_or_timeout" });
             // Network failures and timeouts belong to the router. Retrying here
             // hides the fallback transition for another full timeout period and
             // makes the TUI look frozen. Only rate limits are retried locally.
@@ -234,6 +238,7 @@ export async function chat(entry, req, cb) {
             markRateLimited(entry);
             lastErr = new HttpError(429, `${def.name}: rate limited`);
             debugLog("request.rate_limited", { provider: entry.provider, model: entry.model });
+            recordTelemetry({ event: "rate_limited", provider: entry.provider, model: entry.model, status: 429, latencyMs: Date.now() - startedAt, errorClass: "rate_limited" });
             continue;
         }
         if (!res.ok) {
@@ -263,6 +268,7 @@ export async function chat(entry, req, cb) {
     throw lastErr ?? new Error(`${def.name}: request failed`);
 }
 async function consumeStream(entry, req, res, cb) {
+    const startedAt = Date.now();
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
@@ -299,6 +305,7 @@ async function consumeStream(entry, req, res, cb) {
                         const reason = "mixed scripts / statistically unlikely text";
                         cb.onCorruption?.(content, reason, entry.provider, entry.model);
                         debugLog("response.corrupt", { provider: entry.provider, model: entry.model, chars: content.length, reason });
+                        recordTelemetry({ event: "corrupt_output", provider: entry.provider, model: entry.model, latencyMs: Date.now() - startedAt, errorClass: "corrupt_output" });
                         throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
                     }
                 }
@@ -340,6 +347,7 @@ async function consumeStream(entry, req, res, cb) {
         throw new Error(`${PROVIDERS[entry.provider].name}: model returned likely corrupted text`);
     }
     debugLog("response.complete", { provider: entry.provider, model: entry.model, chars: content.length, toolCalls: toolCalls.length });
+    recordTelemetry({ event: "success", provider: entry.provider, model: entry.model, latencyMs: Date.now() - startedAt, toolCalls: toolCalls.length });
     return { content, toolCalls };
 }
 function looksGarbled(content) {

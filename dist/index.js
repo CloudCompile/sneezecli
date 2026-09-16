@@ -6,6 +6,7 @@ import { loadConfig, saveConfig, configPath, loadSession } from "./config.js";
 import { runAgent } from "./agent.js";
 import { usageLog, checkBudget } from "./llm.js";
 import { debugLogPath } from "./debug-log.js";
+import { flushTelemetry, setTelemetry, telemetryStatus } from "./telemetry.js";
 import { startTui } from "./tui.js";
 const C = {
     dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -33,6 +34,10 @@ Pool management:
   harmony pool                           Show model pool
   harmony status                         Rate-limit / budget state
   harmony cost                           Session token/request usage
+  harmony telemetry status               Show anonymous telemetry status
+  harmony telemetry enable               Enable local telemetry queueing
+  harmony telemetry disable              Disable telemetry queueing
+  harmony telemetry flush                Upload queued telemetry
   harmony sync-models                    Refresh optional model metadata
 
 Other:
@@ -267,6 +272,28 @@ async function main() {
         return `\x1b[2m${s}\x1b[0m`;
     }
     switch (cmd) {
+        case "telemetry": {
+            const action = args[1] ?? "status";
+            if (action === "enable") {
+                setTelemetry(true, args[2]);
+                console.log("Telemetry enabled. It records only anonymous reliability metrics locally.");
+            }
+            else if (action === "disable") {
+                setTelemetry(false);
+                console.log("Telemetry disabled. Existing queued data was retained.");
+            }
+            else if (action === "flush") {
+                console.log(await flushTelemetry());
+            }
+            else if (action === "status") {
+                console.log(telemetryStatus());
+            }
+            else {
+                console.error("Usage: harmony telemetry [status|enable [endpoint]|disable|flush]");
+                process.exitCode = 1;
+            }
+            break;
+        }
         case "cost":
             cmdCost();
             break;

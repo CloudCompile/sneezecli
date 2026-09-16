@@ -28,6 +28,8 @@ export interface Config {
   maxIterations?: number;
   /** optional session name shown in pickers */
   name?: string;
+  /** Anonymous reliability telemetry is disabled unless explicitly enabled. */
+  telemetry?: { enabled: boolean; endpoint?: string };
 }
 
 function configDir(): string {
