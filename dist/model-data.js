@@ -15,7 +15,7 @@ const FALLBACK_DATA = {
     })),
 };
 export function metadataPath() {
-    return process.env.SNEEZE_METADATA ?? REPO_DATA;
+    return process.env.HARMONY_METADATA ?? process.env.SNEEZE_METADATA ?? REPO_DATA;
 }
 export function loadMetadata() {
     const p = metadataPath();
@@ -130,8 +130,8 @@ export async function syncMetadata() {
         { url: "https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=code", name: "arena-code" },
         { url: "https://datasets-server.huggingface.co/first-rows?dataset=open-llm-leaderboard%2Fresults&config=default&split=train", name: "huggingface" },
         { url: "https://raw.githubusercontent.com/Jwrede/llm-bench-data/main/data/2026-09/2026-09-15.jsonl", name: "llm-bench" },
-        { url: process.env.SNEEZE_ARTIFICIAL_ANALYSIS_URL, key: process.env.ARTIFICIAL_ANALYSIS_API_KEY, name: "artificial-analysis" },
-        { url: process.env.SNEEZE_LMARENA_URL, name: "lmarena" },
+        { url: process.env.HARMONY_ARTIFICIAL_ANALYSIS_URL ?? process.env.SNEEZE_ARTIFICIAL_ANALYSIS_URL, key: process.env.ARTIFICIAL_ANALYSIS_API_KEY, name: "artificial-analysis" },
+        { url: process.env.HARMONY_LMARENA_URL ?? process.env.SNEEZE_LMARENA_URL, name: "lmarena" },
     ];
     const fetched = [];
     for (const source of sources) {

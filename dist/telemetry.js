@@ -2,10 +2,10 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { loadConfig, saveConfig } from "./config.js";
-const QUEUE_PATH = process.env.SNEEZE_TELEMETRY_QUEUE ?? `${homedir()}/.config/harmony/telemetry.jsonl`;
+const QUEUE_PATH = process.env.HARMONY_TELEMETRY_QUEUE ?? process.env.SNEEZE_TELEMETRY_QUEUE ?? `${homedir()}/.config/harmony/telemetry.jsonl`;
 const PACKAGE_VERSION = "0.1.0";
 function telemetryConfig(cfg = loadConfig()) {
-    return cfg.telemetry ?? { enabled: false, endpoint: process.env.SNEEZE_TELEMETRY_ENDPOINT };
+    return cfg.telemetry ?? { enabled: false, endpoint: process.env.HARMONY_TELEMETRY_ENDPOINT ?? process.env.SNEEZE_TELEMETRY_ENDPOINT };
 }
 export function telemetryStatus() {
     let queued = 0;
@@ -19,7 +19,7 @@ export function telemetryStatus() {
 }
 export function setTelemetry(enabled, endpoint) {
     const cfg = loadConfig();
-    cfg.telemetry = { ...(cfg.telemetry ?? {}), enabled, endpoint: endpoint ?? cfg.telemetry?.endpoint ?? process.env.SNEEZE_TELEMETRY_ENDPOINT };
+    cfg.telemetry = { ...(cfg.telemetry ?? {}), enabled, endpoint: endpoint ?? cfg.telemetry?.endpoint ?? process.env.HARMONY_TELEMETRY_ENDPOINT ?? process.env.SNEEZE_TELEMETRY_ENDPOINT };
     saveConfig(cfg);
 }
 export function recordTelemetry(event) {

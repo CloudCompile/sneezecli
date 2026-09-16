@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
-const PATH = process.env.SNEEZE_HEALTH ?? `${homedir()}/.config/harmony/health.json`;
+const PATH = process.env.HARMONY_HEALTH ?? process.env.SNEEZE_HEALTH ?? `${homedir()}/.config/harmony/health.json`;
 const records = new Map();
 try {
     if (existsSync(PATH)) {

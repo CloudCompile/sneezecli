@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 const MAX_OUTPUT = 8_000;
-const TIMEOUT_MS = Number(process.env.SNEEZE_VERIFY_TIMEOUT_MS ?? 60_000);
+const TIMEOUT_MS = Number(process.env.HARMONY_VERIFY_TIMEOUT_MS ?? process.env.SNEEZE_VERIFY_TIMEOUT_MS ?? 60_000);
 function run(command, args, cwd, signal) {
     const started = Date.now();
     return new Promise((resolve) => {

@@ -103,7 +103,7 @@ export const PROVIDERS = {
         limits: {},
         keyless: true,
         hidden: true,
-        notes: "Dev-only. Set SNEEZE_MOCK=1 to script the agent loop without API keys.",
+        notes: "Dev-only. Set HARMONY_MOCK=1 to script the agent loop without API keys.",
     },
 };
 export function visibleProviders() {

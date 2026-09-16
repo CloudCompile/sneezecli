@@ -2,13 +2,13 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 function configDir() {
-    return process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/harmony`;
+    return process.env.HARMONY_CONFIG_DIR ?? process.env.SNEEZE_CONFIG_DIR ?? `${homedir()}/.config/harmony`;
 }
 function sessionsDirPath() {
     return `${configDir()}/sessions`;
 }
 function configFilePath() {
-    return process.env.SNEEZE_CONFIG ?? `${configDir()}/config.json`;
+    return process.env.HARMONY_CONFIG ?? process.env.SNEEZE_CONFIG ?? `${configDir()}/config.json`;
 }
 export function configPath() {
     return configFilePath();

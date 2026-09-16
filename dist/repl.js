@@ -31,13 +31,13 @@ async function askConfirm(tool, summary) {
         res(a.trim().toLowerCase());
     }));
     if (answer === "a") {
-        process.env.SNEEZE_YOLO_SESSION = "1";
+        process.env.HARMONY_YOLO_SESSION = "1";
         return true;
     }
     return answer === "" || answer === "y" || answer === "yes";
 }
 async function agentTurn(state, task) {
-    const yolo = state.cfg.yolo || process.env.SNEEZE_YOLO_SESSION === "1";
+    const yolo = state.cfg.yolo || process.env.HARMONY_YOLO_SESSION === "1" || process.env.SNEEZE_YOLO_SESSION === "1";
     const events = {
         onModel: (p, m) => process.stdout.write(C.dim(`\n[${p}/${m}]\n`)),
         onContent: (d) => process.stdout.write(d),

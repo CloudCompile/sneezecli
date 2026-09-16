@@ -11,7 +11,7 @@ function sleep(ms) {
 }
 /** Per-ranked-group round-robin cursor: next call starts where the last one left off.
  *  Persisted to disk so separate one-shot `run` invocations keep rotating. */
-const CURSOR_PATH = process.env.SNEEZE_CURSOR ?? `${homedir()}/.config/harmony/cursor.json`;
+const CURSOR_PATH = process.env.HARMONY_CURSOR ?? process.env.SNEEZE_CURSOR ?? `${homedir()}/.config/harmony/cursor.json`;
 function loadCursor() {
     try {
         if (existsSync(CURSOR_PATH)) {

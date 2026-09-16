@@ -36,7 +36,8 @@ Pool management:
   harmony status                         Rate-limit / budget state
   harmony doctor                         Check runtime configuration
   harmony verify                         Run workspace verification checks
-  harmony cost                           Session token/request usage
+  harmony usage                          Free-provider quota usage
+  harmony cost                           Alias for usage
   harmony telemetry status               Show anonymous telemetry status
   harmony telemetry enable               Enable local telemetry queueing
   harmony telemetry disable              Disable telemetry queueing
@@ -51,7 +52,7 @@ Other:
 Providers: ${visibleProviders().map((p) => p.id).join(", ")}
 
 Config: ${configPath()}
-Diagnostics: ${debugLogPath()} (override with SNEEZE_LOG)`);
+Diagnostics: ${debugLogPath()} (override with HARMONY_LOG)`);
     process.exit(0);
 }
 function cmdStatus() {
@@ -259,12 +260,12 @@ function applyRunFlags(args, cfg) {
     const task = args.find((a, i) => a !== "run" && a !== "-p" && a !== "--yolo" && a !== "--resume" && args[i - 1] !== "--resume");
     return { task: task ?? "", resumeId };
 }
-function cmdCost() {
+function cmdUsage() {
     if (usageLog.size === 0) {
-        console.log("No usage this session yet.");
+        console.log("No free-provider usage this session yet.");
         return;
     }
-    console.log("Session usage:\n");
+    console.log("Free-provider quota usage (no monetary charges tracked):\n");
     let reqs = 0, tin = 0, tout = 0;
     for (const [k, u] of usageLog) {
         console.log(`  ${k.padEnd(40)} ${String(u.requests).padStart(4)} req  ${u.tokensIn} in  ${u.tokensOut} out`);
@@ -323,7 +324,8 @@ async function main() {
             break;
         }
         case "cost":
-            cmdCost();
+        case "usage":
+            cmdUsage();
             break;
         case "setup":
             cmdSetup();

@@ -135,7 +135,7 @@ async function confirmPrompt(tool, summary) {
                     resolve(true);
                 }
                 else if (k === "a") {
-                    process.env.SNEEZE_YOLO_SESSION = "1";
+                    process.env.HARMONY_YOLO_SESSION = "1";
                     cleanup();
                     resolve(true);
                 }
@@ -605,7 +605,7 @@ function printHelp() {
     }
 }
 async function agentTurn(state, task, rl) {
-    const yolo = state.cfg.yolo || process.env.SNEEZE_YOLO_SESSION === "1";
+    const yolo = state.cfg.yolo || process.env.HARMONY_YOLO_SESSION === "1" || process.env.SNEEZE_YOLO_SESSION === "1";
     state.abort = new AbortController();
     let aborted = false;
     const startedAt = Date.now();
