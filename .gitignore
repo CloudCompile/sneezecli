@@ -1,0 +1,6 @@
+.agent-recordings/
+
+# Local Mega-to-FreeImage side project
+scripts/mega-to-freeimage.mjs
+mega-downloads/
+links.txt
